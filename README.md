@@ -44,7 +44,7 @@ export X_BEARER_TOKEN="your_x_bearer_token_here"
 *(Note: Never hardcode or commit tokens to source code or git repositories).*
 
 ### Dataset files
-Raw benchmark datasets and generated CSV analysis outputs are intentionally excluded from Git. Training and audit scripts may require you to obtain the Cresci datasets separately and place them locally. Pretrained model artifacts required by the application are included in `models/`.
+Raw benchmark datasets and generated CSV analysis outputs are intentionally excluded from Git. Training and audit scripts may require you to obtain the Cresci datasets separately and place them locally. Pretrained model artifacts and compact aggregate feature-distribution metadata required by the application are included.
 
 ---
 
