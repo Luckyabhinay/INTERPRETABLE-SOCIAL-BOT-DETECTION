@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+
+# Local benchmark datasets and generated analysis outputs
+/15/
+/17/
+/backup_pre_corrections/
+/lightweight_audit_package/
+/lightweight_audit_package.zip
+/phase3_results/
+/*.csv
+/cresci15_training_distributions.json

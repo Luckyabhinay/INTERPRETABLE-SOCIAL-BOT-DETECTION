@@ -1,0 +1,17 @@
+# Social Bot Detection ML Project - Reproducible Lockfile
+# Python Version: 3.14.7 (64-bit Windows)
+pandas==3.0.6
+numpy==2.5.3
+scikit-learn==1.9.1
+lightgbm==4.7.0
+xgboost==3.4.1
+shap==0.54.1
+lime==0.2.0.1
+fastapi==0.141.1
+pydantic==2.13.5
+uvicorn==0.53.0
+matplotlib==3.11.2
+seaborn==0.13.2
+joblib==1.6.0
+scipy==1.17.1
+
