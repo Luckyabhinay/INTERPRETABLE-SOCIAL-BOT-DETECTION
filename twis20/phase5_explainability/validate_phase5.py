@@ -119,7 +119,7 @@ def validate(output: Path) -> None:
         assert set(errors["error_type"]).issubset({"false_positive", "false_negative"})
         assert (errors["analysis_sample_count"] <= 30).all()
 
-    report = (output / "PHASE5_EXPLAINABILITY_REPORT.md").read_text(encoding="utf-8")
+    report = (output / "phase5_explainability_report.md").read_text(encoding="utf-8")
     for section in (
         "## Official Phase 4 test results",
         "## Top 20 global features",

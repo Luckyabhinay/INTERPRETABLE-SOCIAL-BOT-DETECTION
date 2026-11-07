@@ -928,14 +928,14 @@ Inputs were read-only:
 
 - Original split records: `TwiBot-20-20261106T091806Z-1-002/TwiBot-20/Twibot-20.zip` members `train.json`, `dev.json`, `test.json`.
 - Converted graph: `TwiBot-20-Format22-003/Twibot-20/split.csv`, `label.csv`, and `edge.csv`.
-- Phase 1 reports: [DATASET_AUDIT.md](./DATASET_AUDIT.md) and [GRAPH_ID_COVERAGE_AUDIT.md](./GRAPH_ID_COVERAGE_AUDIT.md).
+- Phase 1 reports: [dataset_audit.md](./dataset_audit.md) and [graph_id_coverage_audit.md](./graph_id_coverage_audit.md).
 
 The archive arrays were parsed incrementally from ZIP streams. Tweet hashes for cross-split duplicate checks were accumulated in a temporary SQLite database that was removed after analysis. The graph user roster was initialized from `split.csv`; relationship edges were scanned as CSV. Counts refer to actual data read in this run.
 
 Assumptions and transformations:
 
 - `dev` is the official validation split, equivalent to `val` in the converted split file.
-- Labels are raw string `"0"` = human and `"1"` = bot, matching the bundled TwiBot-20 README and the Phase 1 label reconciliation.
+- Labels are raw string `"0"` = human and `"1"` = bot, matching the bundled TwiBot-20 readme and the Phase 1 label reconciliation.
 - Profile missingness means a missing key, JSON `null`, or a string whose stripped, case-insensitive value is empty, `"none"`, `"null"`, or `"nan"`. No record was removed or imputed.
 - Numeric summaries parse only finite numeric values. Invalid nonempty numeric representations and negative counts are reported separately; values are not clipped or winsorized.
 - Creation-date analysis uses year only. The collection timestamp is not established by the available files, so account age is not calculated.
@@ -1102,8 +1102,8 @@ def main() -> None:
     graph = analyze_graph()
     save_figures(split_data, extras, graph)
     report = build_report(split_data, extras, graph)
-    (ROOT / "EDA_REPORT.md").write_text(report, encoding="utf-8")
-    print(f"Wrote {ROOT / 'EDA_REPORT.md'}", flush=True)
+    (ROOT / "eda_report.md").write_text(report, encoding="utf-8")
+    print(f"Wrote {ROOT / 'eda_report.md'}", flush=True)
     print(f"Wrote figures to {OUTPUT_DIR}", flush=True)
     print(
         json.dumps(

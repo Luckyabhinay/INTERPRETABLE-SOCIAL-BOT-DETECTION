@@ -254,7 +254,7 @@ def package_model(
         "benchmark results do not guarantee live X performance; current live fields,",
         "account availability, and domain shift may differ from the benchmark.",
     ]
-    (output / "MODEL_PACKAGE_REPORT.md").write_text(
+    (output / "model_package_report.md").write_text(
         "\n".join(report_lines) + "\n", encoding="utf-8"
     )
     return {

@@ -92,5 +92,5 @@
     "fn": 67,
     "tp": 1236
   },
-  "model_file": "candidate_models\\profile_text__xgboost__depth_8.joblib"
+  "model_file": "candidate_models\\profile_text_xgboost_depth_8.joblib"
 }

@@ -1062,7 +1062,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "",
         "`overlap_aware_test_sensitivity.csv` partitions, but does not remove or reassign, official test accounts.",
     ]
-    (output / "PHASE4_TRAINING_REPORT.md").write_text(
+    (output / "phase4_training_report.md").write_text(
         "\n".join(report_lines) + "\n", encoding="utf-8"
     )
     _atomic_json(

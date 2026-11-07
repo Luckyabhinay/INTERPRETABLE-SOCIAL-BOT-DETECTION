@@ -1,0 +1,70 @@
+{
+  "experiment": "profile_network",
+  "experiment_index": 4,
+  "experiment_count": 5,
+  "configuration": "D_profile_network",
+  "algorithm": "logistic_regression",
+  "algorithm_index": 1,
+  "algorithm_count": 5,
+  "setting": "C_1",
+  "candidate_index": 2,
+  "candidate_count": 2,
+  "status": "complete",
+  "started_at": "2026-11-06T20:20:03.045915+00:00",
+  "ended_at": "2026-11-06T20:20:03.270907+00:00",
+  "duration_seconds": 0.224994600052014,
+  "configuration_parameters": {
+    "class": "LogisticRegression",
+    "parameters": {
+      "C": 1,
+      "class_weight": null,
+      "dual": false,
+      "fit_intercept": true,
+      "intercept_scaling": 1,
+      "l1_ratio": 0.0,
+      "max_iter": 1000,
+      "n_jobs": null,
+      "penalty": "deprecated",
+      "random_state": 20261106,
+      "solver": "liblinear",
+      "tol": 0.0001,
+      "verbose": 0,
+      "warm_start": false
+    }
+  },
+  "feature_input_fingerprint": "04c16326e1ebc7d4357b7c1b38578be7c8af3d4f1f63f3d4c3c093a66087efe3",
+  "train_shape": [
+    8278,
+    64
+  ],
+  "dev_shape": [
+    2365,
+    64
+  ],
+  "sparse_format": "csr",
+  "rss_before_mb": null,
+  "dense_equivalent_mb": 2.88720703125,
+  "full_matrix_nnz": 310074,
+  "train_matrix_nnz": 217075,
+  "dev_matrix_nnz": 62010,
+  "rss_after_mb": null,
+  "peak_tracemalloc_mb": 0.21748733520507812,
+  "threshold": 0.6299999999999997,
+  "metrics": {
+    "accuracy": 0.7378435517970402,
+    "precision_bot": 0.7031528851873885,
+    "recall_bot": 0.9071373752877974,
+    "f1_bot": 0.792225201072386,
+    "macro_f1": 0.7185639178328711,
+    "balanced_accuracy": 0.7186346010148967,
+    "roc_auc": 0.761922002390543,
+    "pr_auc": 0.7387446867825912,
+    "genuine_recall": 0.5301318267419962,
+    "false_positive_rate": 0.4698681732580038,
+    "tn": 563,
+    "fp": 499,
+    "fn": 121,
+    "tp": 1182
+  },
+  "model_file": "candidate_models\\profile_network_logistic_regression_c_1.joblib"
+}
