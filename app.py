@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 import joblib
@@ -23,6 +24,85 @@ from xfetch_client import (
     extract_features_from_xfetch_data
 )
 from ood_validator import evaluate_feature_compatibility_and_ood
+from twis20.live_twibot20 import construct_profile_text, load_live_artifacts
+
+
+def _profile_summary_metrics(user: dict) -> dict:
+    """Normalize documented X API and XFetch profile fields for display."""
+    public_metrics = user.get("public_metrics")
+    metrics = public_metrics if isinstance(public_metrics, dict) else {}
+
+    def first_metric(*keys):
+        for source in (metrics, user):
+            for key in keys:
+                value = source.get(key)
+                if isinstance(value, (int, float)) and np.isfinite(value):
+                    return value
+        return None
+
+    account_age_days = None
+    created_at = user.get("created_at")
+    if isinstance(created_at, str) and created_at:
+        try:
+            created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+        else:
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            account_age_days = round(
+                max(
+                    0.0,
+                    (datetime.now(timezone.utc) - created.astimezone(timezone.utc)).total_seconds()
+                    / 86400.0,
+                ),
+                1,
+            )
+
+    return {
+        "account_age_days": account_age_days,
+        "followers_count": first_metric("followers_count", "follower_count"),
+        "friends_count": first_metric("following_count", "following", "friends_count"),
+        "status_count": first_metric("tweet_count", "status_count", "statuses_count"),
+    }
+
+
+def _binary_uncalibrated_scores(model, features) -> dict[str, float]:
+    """Return validated raw scores for the TwiBot-20 labels (0=genuine, 1=bot)."""
+    classes = getattr(model, "classes_", None)
+    if classes is None:
+        raise ValueError("model is missing classes_ metadata")
+
+    class_labels = np.asarray(classes).tolist()
+    if (
+        not isinstance(class_labels, list)
+        or len(class_labels) != 2
+        or any(
+            isinstance(label, (bool, np.bool_))
+            or not isinstance(label, (int, np.integer))
+            for label in class_labels
+        )
+        or set(class_labels) != {0, 1}
+    ):
+        raise ValueError("model classes_ must contain the binary labels 0 and 1")
+
+    outputs = np.asarray(model.predict_proba(features), dtype=np.float64)
+    if outputs.shape != (1, 2):
+        raise ValueError("predict_proba must return one score for each binary class")
+    if (
+        not np.isfinite(outputs).all()
+        or np.any(outputs < 0)
+        or np.any(outputs > 1)
+        or not np.isclose(outputs[0].sum(), 1.0, rtol=0.0, atol=1e-6)
+    ):
+        raise ValueError("predict_proba outputs must be finite, in range, and sum to 1")
+
+    class_indices = {label: index for index, label in enumerate(class_labels)}
+    return {
+        "Genuine": float(outputs[0, class_indices[0]]),
+        "Bot": float(outputs[0, class_indices[1]]),
+    }
+
 
 if sys.stdout.encoding != 'utf-8':
     try:
@@ -136,8 +216,230 @@ class AccountInput(BaseModel):
 class XAnalyzeRequest(BaseModel):
     username: str = Field(..., description="X (Twitter) handle or profile URL (e.g. '@elonmusk' or 'https://x.com/username')")
 
+@app.post("/twibot20/analyze")
+async def analyze_twibot20(req: XAnalyzeRequest):
+    """Score live X data with the benchmark-trained profile+text model."""
+    def error_response(
+        status_code: int,
+        status: str,
+        error_code: str,
+        message: str,
+        username: str | None = None,
+        feature_audit: dict | None = None,
+        manifest: dict | None = None,
+    ):
+        audit = feature_audit or {
+            "expected_feature_count": 50072,
+            "constructed_feature_count": None,
+            "profile_feature_count": None,
+            "tweet_summary_feature_count": None,
+            "tfidf_feature_count": None,
+            "missing_feature_count": None,
+            "duplicate_or_invalid_feature_count": None,
+            "feature_order_validated": False,
+            "preprocessing_validated": False,
+            "preprocessing_details": {
+                "status": "not_run",
+                "message": "Feature construction did not complete.",
+            },
+        }
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "status": status,
+                "error_code": error_code,
+                "message": message,
+                "username": username,
+                "prediction": None,
+                "probability": None,
+                "confidence": None,
+                "score_calibrated": False,
+                "score_interpretation": "No uncalibrated Bot-class model score was produced; expected range is [0, 1].",
+                "threshold": (manifest or {}).get("threshold"),
+                "model": (manifest or {}).get("model_name"),
+                "model_score_uncalibrated": None,
+                "class_scores_uncalibrated": {"Genuine": None, "Bot": None},
+                "raw_model_prediction": None,
+                "probabilities": {"Human": None, "Bot": None},
+                "profile_summary": {},
+                "feature_count_required": 50072,
+                "feature_count_constructed": audit["constructed_feature_count"],
+                "available_feature_groups": {},
+                "missing_feature_groups": [],
+                "feature_audit": audit,
+                "network_features_used": False,
+                "available_features": [],
+                "missing_features": [],
+                "explanation": [],
+                "lime_explanations": [],
+                "ood_validation": {
+                    "audit_warnings": [],
+                    "verification_note": None,
+                },
+            },
+        )
+
+    clean_user = sanitize_username(req.username)
+    if not clean_user:
+        return error_response(
+            400,
+            "error",
+            "invalid_username",
+            "Provide a valid X username or URL.",
+        )
+
+    xfetch = XFetchClient()
+    xclient = XApiClient()
+    user = {}
+    tweets = []
+    if xfetch.has_key():
+        payload, _, error, status = xfetch.fetch_profile(clean_user)
+        if error or not payload:
+            return error_response(
+                status,
+                "error",
+                "profile_fetch_failed",
+                error or "Live X fetch failed.",
+                clean_user,
+            )
+        user = payload.get("user", {})
+        tweets = payload.get("recent_tweets", [])
+    elif xclient.has_token():
+        user, error, status = xclient.fetch_user_by_username(clean_user)
+        if error or not user:
+            return error_response(
+                status,
+                "error",
+                "profile_fetch_failed",
+                error or "Live X fetch failed.",
+                clean_user,
+            )
+        tweets, _ = xclient.fetch_recent_tweets(user.get("id", ""), max_results=100)
+    else:
+        return error_response(
+            401,
+            "error",
+            "missing_api_credentials",
+            "No XFETCH_API_KEY or X_BEARER_TOKEN is configured.",
+            clean_user,
+        )
+
+    manifest = None
+    try:
+        manifest, preprocessor, locked_model, names = load_live_artifacts()
+        profile_text, available, missing, feature_audit = construct_profile_text(
+            user, tweets, preprocessor, names
+        )
+    except Exception as exc:
+        return error_response(
+            500,
+            "error",
+            "artifact_validation_failed",
+            f"TwiBot-20 artifact validation failed: {exc}",
+            clean_user,
+            manifest=manifest,
+        )
+
+    if (
+        missing
+        or profile_text.shape[1] != len(names)
+        or not feature_audit["feature_order_validated"]
+        or not feature_audit["preprocessing_validated"]
+    ):
+        return error_response(
+            422,
+            "insufficient_features",
+            "feature_validation_failed",
+            "The profile+text feature schema or preprocessing validation failed; no prediction was made.",
+            clean_user,
+            feature_audit,
+            manifest,
+        )
+
+    try:
+        class_scores = _binary_uncalibrated_scores(locked_model, profile_text)
+    except Exception as exc:
+        return error_response(
+            500,
+            "error",
+            "invalid_model_scores",
+            f"TwiBot-20 model scores were unavailable or invalid: {exc}",
+            clean_user,
+            feature_audit,
+            manifest,
+        )
+
+    bot_score = class_scores["Bot"]
+    threshold = float(manifest["threshold"])
+    is_bot = bot_score >= threshold
+    summary_metrics = _profile_summary_metrics(user)
+    prediction = "Likely Bot" if is_bot else "Likely Genuine"
+
+    return JSONResponse(
+        content={
+            "status": "success",
+            "username": clean_user,
+            "prediction": prediction,
+            "probability": None,
+            "confidence": None,
+            "threshold": threshold,
+            "model": manifest["model_name"],
+            "model_score_uncalibrated": bot_score,
+            "class_scores_uncalibrated": class_scores,
+            "score_calibrated": False,
+            "score_interpretation": (
+                "Uncalibrated predict_proba outputs for the verified binary classes "
+                "Genuine=0 and Bot=1; they sum to 1 and are not calibrated probabilities."
+            ),
+            "raw_model_prediction": "Bot" if is_bot else "Genuine",
+            "probabilities": {
+                "Human": None,
+                "Bot": None,
+            },
+            "profile_summary": {
+                "name": user.get("name", clean_user),
+                "username": user.get("username", clean_user),
+                "description": user.get("description", ""),
+                "verified": user.get("verified") is True,
+                "profile_image_url": user.get("profile_image_url"),
+                "account_age_days": summary_metrics["account_age_days"],
+                "tweets_analyzed": len(tweets),
+                "followers_count": summary_metrics["followers_count"],
+                "friends_count": summary_metrics["friends_count"],
+                "status_count": summary_metrics["status_count"],
+            },
+            "feature_count_required": len(names),
+            "feature_count_constructed": int(profile_text.shape[1]),
+            "available_feature_groups": available,
+            "missing_feature_groups": missing,
+            "feature_audit": feature_audit,
+            "network_features_used": False,
+            # Legacy response properties are retained as empty arrays for old clients.
+            # TwiBot-20 feature audit details are exposed only in feature_audit.
+            "available_features": [],
+            "missing_features": [],
+            "explanation": [],
+            "lime_explanations": [],
+            "ood_validation": {
+                "audit_warnings": [manifest["live_distribution_warning"]],
+                "verification_note": (
+                    "This is a profile+text model; it does not use benchmark "
+                    "graph/network features."
+                ),
+            },
+        }
+    )
+
 
 @app.get("/", response_class=HTMLResponse)
+async def twibot20_dashboard():
+    """Serve the standalone TwiBot-20 research dashboard."""
+    dashboard_path = os.path.join(BASE_DIR, "twis20", "dashboard.html")
+    with open(dashboard_path, encoding="utf-8") as dashboard_file:
+        return HTMLResponse(content=dashboard_file.read())
+
+
+@app.get("/cresci15", response_class=HTMLResponse)
 async def web_dashboard():
     """Serves an interactive Web UI for demonstrating predictions, XAI explanations, and Live X Analysis"""
     html_content = """

@@ -1,0 +1,38 @@
+{
+  "selection": {
+    "experiment": "profile_text_network",
+    "configuration": "E_profile_text_network",
+    "algorithm": "xgboost",
+    "setting": "depth_8",
+    "threshold": 0.5599999999999997,
+    "metrics": {
+      "accuracy": 0.8600422832980973,
+      "precision_bot": 0.8328767123287671,
+      "recall_bot": 0.9332310053722179,
+      "f1_bot": 0.8802026782482808,
+      "macro_f1": 0.8559630574769619,
+      "balanced_accuracy": 0.8517379132322483,
+      "roc_auc": 0.9283314038442361,
+      "pr_auc": 0.9299214801067942,
+      "genuine_recall": 0.7702448210922788,
+      "false_positive_rate": 0.2297551789077213,
+      "tn": 818,
+      "fp": 244,
+      "fn": 87,
+      "tp": 1216
+    },
+    "duration_seconds": 1463.3518417999148,
+    "candidate_record": "candidate_records\\profile_text_network__xgboost__depth_8.json"
+  },
+  "selection_metadata": {
+    "seed": 20261106,
+    "selection_split": "dev",
+    "ranking_metrics": [
+      "macro_f1",
+      "pr_auc",
+      "duration_seconds"
+    ],
+    "test_metrics_used": false,
+    "feature_input_fingerprint": "04c16326e1ebc7d4357b7c1b38578be7c8af3d4f1f63f3d4c3c093a66087efe3"
+  }
+}

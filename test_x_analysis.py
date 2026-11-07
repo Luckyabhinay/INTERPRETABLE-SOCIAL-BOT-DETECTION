@@ -97,6 +97,10 @@ MOCK_TWEETS = [
 
 
 class TestLiveXAccountAnalysis(unittest.TestCase):
+    def setUp(self):
+        xfetch_patch = patch("app.XFetchClient.has_key", return_value=False)
+        xfetch_patch.start()
+        self.addCleanup(xfetch_patch.stop)
 
     def test_01_username_sanitization(self):
         """Test URL, @handle, and text normalization"""
@@ -121,8 +125,12 @@ class TestLiveXAccountAnalysis(unittest.TestCase):
         self.assertEqual(data["status"], "success")
         self.assertEqual(data["platform"], "X")
         self.assertEqual(data["username"], "janeresearcher")
-        self.assertIn(data["prediction"], ["Likely Genuine", "Likely Bot"])
-        self.assertIn("confidence", data)
+        self.assertIn(
+            data["prediction"],
+            ["Likely Genuine", "Likely Bot", "Unable to Reliably Classify"],
+        )
+        self.assertIn("model_score_uncalibrated", data)
+        self.assertIn("is_reliable", data)
         self.assertIn("probabilities", data)
         self.assertIn("Human", data["probabilities"])
         self.assertIn("Bot", data["probabilities"])
@@ -269,12 +277,15 @@ class TestLiveXAccountAnalysis(unittest.TestCase):
             self.assertIn("direction", item)
 
     def test_11_regression_existing_endpoints(self):
-        """Ensure existing web dashboard GET / and POST /predict_explain remain 100% operational"""
+        """Ensure TwiBot and Cresci dashboards and POST /predict_explain remain operational."""
         get_resp = client.get("/")
         self.assertEqual(get_resp.status_code, 200)
-        self.assertIn("Interpretable AI Social Bot Detection", get_resp.text)
-        self.assertIn("Live X (Twitter) Account Analyzer", get_resp.text)
-        self.assertIn("Manual Feature Simulator", get_resp.text)
+        self.assertIn("TwiBot-20 | Research Dashboard", get_resp.text)
+        cresci_resp = client.get("/cresci15")
+        self.assertEqual(cresci_resp.status_code, 200)
+        self.assertIn("Interpretable AI Social Bot Detection", cresci_resp.text)
+        self.assertIn("Live X (Twitter) Account Analyzer", cresci_resp.text)
+        self.assertIn("Manual Feature Simulator", cresci_resp.text)
 
         post_resp = client.post("/predict_explain", json={
             "followers_count": 1200,
@@ -298,4 +309,3 @@ class TestLiveXAccountAnalysis(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

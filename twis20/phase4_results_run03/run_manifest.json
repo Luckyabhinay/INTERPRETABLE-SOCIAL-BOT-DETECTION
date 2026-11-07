@@ -1,0 +1,40 @@
+{
+  "created_at": "2026-11-06T18:01:35.112394+00:00",
+  "output_directory": "C:\\Users\\guntu\\OneDrive\\Desktop\\ml project\\twis20\\phase4_results_run03",
+  "feature_directory": "C:\\Users\\guntu\\OneDrive\\Desktop\\ml project\\twis20\\phase3_features_phase4",
+  "feature_input_fingerprint": "04c16326e1ebc7d4357b7c1b38578be7c8af3d4f1f63f3d4c3c093a66087efe3",
+  "feature_inputs": {
+    "feature_manifest.json": {
+      "size_bytes": 4036306,
+      "sha256": "b8d32cb551c1e3a6076526417e11f6f59ec4e121ff94b2ec5cf55cfa28bef69e"
+    },
+    "features_profile.npz": {
+      "size_bytes": 283983,
+      "sha256": "44194a23f69a0247c952a7f6dc35adbe47fc9319ea90a71e303dae26c48e3e22"
+    },
+    "features_text_summary.npz": {
+      "size_bytes": 330507,
+      "sha256": "ba9b002562bdb57a65675747e86af4bea9e2789341e456538e4b5e8cdb77aada"
+    },
+    "features_text_tfidf.npz": {
+      "size_bytes": 83396920,
+      "sha256": "6087fa1682bb2575a07028c669569bd51c468b8055dfa1060b9625a644add804"
+    },
+    "features_network.npz": {
+      "size_bytes": 54339,
+      "sha256": "cb202edb99a61c7e9d505240418c082c363c83a15a06310ac7632ad4976ba263"
+    }
+  },
+  "manifest_schema_version": "1.0",
+  "official_split_counts": {
+    "train": 8278,
+    "dev": 2365,
+    "test": 1183
+  },
+  "thread_policy": {
+    "lightgbm_n_jobs": 1,
+    "random_forest_n_jobs": 1,
+    "xgboost_n_jobs": 1
+  },
+  "automatic_resume": false
+}

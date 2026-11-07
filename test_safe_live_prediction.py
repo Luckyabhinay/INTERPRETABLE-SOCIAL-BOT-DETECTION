@@ -31,7 +31,7 @@ client = TestClient(app)
 
 class TestLiveXSafePredictionAudit(unittest.TestCase):
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_01_verified_genuine_like_account(self, mock_urlopen):
         """1. Verified genuine account: verifies OOD detection and verification context note"""
         payload = {
@@ -68,7 +68,7 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         self.assertTrue(len(data["ood_validation"]["audit_warnings"]) > 0)
         self.assertIn("verified", data["ood_validation"]["verification_note"].lower())
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_02_unverified_genuine_like_account(self, mock_urlopen):
         """2. Unverified genuine account: in-distribution human patterns with complete window coverage"""
         payload = {
@@ -99,7 +99,7 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         self.assertFalse(data["ood_validation"]["window_mismatch_detected"])
         self.assertIn("model_score_uncalibrated", data)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_03_bot_like_account(self, mock_urlopen):
         """3. In-distribution automated bot-like account"""
         payload = {
@@ -128,7 +128,7 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         self.assertTrue(data["is_reliable"])
         self.assertEqual(data["prediction"], "Likely Bot")
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_04_high_engagement_account(self, mock_urlopen):
         """4. High engagement account: catches domain shift in likes and replies"""
         payload = {
@@ -159,7 +159,7 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         self.assertFalse(data["is_reliable"])
         self.assertEqual(data["prediction"], "Unable to Reliably Classify")
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_05_sample_window_mismatch(self, mock_urlopen):
         """5. Account with 20 posts but large status count triggers window mismatch"""
         payload = {
@@ -194,7 +194,7 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         res = client.post("/analyze_x", json={"username": ""})
         self.assertEqual(res.status_code, 400)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_07_out_of_distribution_values(self, mock_urlopen):
         """7. Account with values exceeding empirical training limits"""
         payload = {
@@ -225,7 +225,7 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         ood_names = [o["feature"] for o in data["ood_validation"]["ood_features"]]
         self.assertIn("followers_count", ood_names)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_08_api_failure_handling(self, mock_urlopen):
         """8. API failure handling (402 credits depleted, 404 not found)"""
         err_res = urllib.error.HTTPError(
@@ -245,8 +245,11 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         """9. Regression test on /predict_explain and GET /"""
         get_res = client.get("/")
         self.assertEqual(get_res.status_code, 200)
-        self.assertIn("Live X (Twitter) Account Analyzer", get_res.text)
-        self.assertIn("Manual Feature Simulator", get_res.text)
+        self.assertIn("TwiBot-20 | Research Dashboard", get_res.text)
+        cresci_res = client.get("/cresci15")
+        self.assertEqual(cresci_res.status_code, 200)
+        self.assertIn("Live X (Twitter) Account Analyzer", cresci_res.text)
+        self.assertIn("Manual Feature Simulator", cresci_res.text)
 
         post_res = client.post("/predict_explain", json={
             "followers_count": 1200,

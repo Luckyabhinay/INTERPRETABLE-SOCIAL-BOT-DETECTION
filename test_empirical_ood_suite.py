@@ -30,7 +30,7 @@ client = TestClient(app)
 
 class TestEmpiricalOODSafePipeline(unittest.TestCase):
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_01_verified_genuine_accounts(self, mock_urlopen):
         """Verified genuine accounts (e.g. high follower counts & active interactions)"""
         # Verified account with 41,325 followers and 3.875 avg_replies (the reported case)
@@ -67,7 +67,7 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         self.assertTrue(data["ood_validation"]["window_mismatch_detected"])
         self.assertIn("model_score_uncalibrated", data)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_02_known_bot_accounts(self, mock_urlopen):
         """In-distribution fake followers and automated spambots"""
         payload = {
@@ -98,7 +98,7 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         self.assertEqual(data["prediction"], "Likely Bot")
         self.assertTrue(data["probabilities"]["Bot"] > 0.85)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_03_high_engagement_account(self, mock_urlopen):
         """High engagement accounts (avg_replies > 1.0, avg_favorites > 25)"""
         payload = {
@@ -130,7 +130,7 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         self.assertFalse(data["is_reliable"])
         self.assertEqual(data["prediction"], "Unable to Reliably Classify")
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_04_low_engagement_account(self, mock_urlopen):
         """Low engagement accounts matching Cresci-15 genuine human baseline"""
         payload = {
@@ -163,7 +163,7 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         self.assertTrue(data["is_reliable"])
         self.assertFalse(data["ood_validation"]["window_mismatch_detected"])
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_05_account_age_variations(self, mock_urlopen):
         """Checks handling of young accounts (2024, ~1002 days) vs older established accounts"""
         # Account created in 2011 (age ~ 5600 days)
@@ -194,7 +194,7 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         data = res.json()
         self.assertGreater(data["profile_summary"]["account_age_days"], 5000)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_06_incomplete_profile_data(self, mock_urlopen):
         """Account with incomplete profile attributes (missing bio, default avatar)"""
         payload = {
@@ -222,7 +222,7 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         data = res.json()
         self.assertEqual(data["prediction"], "Likely Bot")
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_07_sampled_window_vs_lifetime_tweets(self, mock_urlopen):
         """Sampled 20 recent tweets for an account with thousands of lifetime posts"""
         payload = {

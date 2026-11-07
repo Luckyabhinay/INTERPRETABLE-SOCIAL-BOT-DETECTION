@@ -1,0 +1,2 @@
+experiment,configuration,algorithm,setting,threshold,accuracy,precision_bot,recall_bot,f1_bot,macro_f1,balanced_accuracy,roc_auc,pr_auc,genuine_recall,false_positive_rate,tn,fp,fn,tp
+profile_text_network,E_profile_text_network,xgboost,depth_8,0.5599999999999997,0.8486897717666948,0.8288159771754636,0.9078125,0.866517524235645,0.8459416889470908,0.8434090124309392,0.9302572513812155,0.9335821863091537,0.7790055248618785,0.22099447513812154,423,120,59,581

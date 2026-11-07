@@ -12,10 +12,221 @@ import os
 import re
 import json
 import string
+import http.client
+import logging
+import socket
+import ssl
+import time
 import urllib.request
 import urllib.error
+from urllib.parse import urlsplit
 from datetime import datetime
 from typing import Dict, Any, Tuple, List, Optional
+
+logger = logging.getLogger(__name__)
+
+
+class _InstrumentedHTTPSConnection(http.client.HTTPSConnection):
+    """Verified HTTPS transport with bounded address fallback and stage timings."""
+
+    def __init__(self, *args, diagnostics: Dict[str, Any], **kwargs):
+        super().__init__(*args, **kwargs)
+        self._diagnostics = diagnostics
+
+    def connect(self) -> None:
+        connect_host = self.host
+        started = time.perf_counter()
+        timeout = self.timeout if isinstance(self.timeout, (int, float)) else 15.0
+        try:
+            addresses = socket.getaddrinfo(
+                connect_host, self.port, type=socket.SOCK_STREAM
+            )
+        except Exception:
+            self._diagnostics["stage"] = "dns"
+            self._diagnostics["dns_seconds"] = time.perf_counter() - started
+            logger.warning(
+                "XFetch DNS failed host=%s duration_ms=%.1f",
+                connect_host,
+                self._diagnostics["dns_seconds"] * 1000,
+            )
+            raise
+        self._diagnostics["dns_seconds"] = time.perf_counter() - started
+        self._diagnostics["stage"] = "dns_complete"
+        logger.info(
+            "XFetch DNS host=%s duration_ms=%.1f addresses=%d",
+            connect_host,
+            self._diagnostics["dns_seconds"] * 1000,
+            len(addresses),
+        )
+
+        candidates = []
+        seen = set()
+        for address_info in addresses:
+            family, _, _, _, sockaddr = address_info
+            address_key = (family, sockaddr)
+            if address_key not in seen:
+                seen.add(address_key)
+                candidates.append(address_info)
+            if len(candidates) >= 4:
+                break
+
+        failures = []
+        for index, (family, socktype, proto, _, sockaddr) in enumerate(candidates):
+            address = sockaddr[0]
+            raw_socket = socket.socket(family, socktype, proto)
+            attempt_deadline = started + timeout * (index + 1) / len(candidates)
+            raw_socket.settimeout(max(attempt_deadline - time.perf_counter(), 0.001))
+            tcp_started = time.perf_counter()
+            try:
+                raw_socket.connect(sockaddr)
+            except OSError as exc:
+                raw_socket.close()
+                elapsed = time.perf_counter() - tcp_started
+                failures.append(exc)
+                self._diagnostics["stage"] = "tcp"
+                logger.warning(
+                    "XFetch TCP failed host=%s address=%s duration_ms=%.1f error=%s",
+                    connect_host,
+                    address,
+                    elapsed * 1000,
+                    type(exc).__name__,
+                )
+                continue
+
+            elapsed = time.perf_counter() - tcp_started
+            logger.info(
+                "XFetch TCP connected host=%s address=%s duration_ms=%.1f",
+                connect_host,
+                address,
+                elapsed * 1000,
+            )
+
+            if self._tunnel_host:
+                self.sock = raw_socket
+                tunnel_started = time.perf_counter()
+                try:
+                    self._tunnel()
+                except Exception:
+                    self._diagnostics["stage"] = "proxy_tunnel"
+                    self._diagnostics["proxy_tunnel_seconds"] = (
+                        time.perf_counter() - tunnel_started
+                    )
+                    self.close()
+                    logger.warning(
+                        "XFetch proxy tunnel failed proxy_host=%s target_host=%s "
+                        "duration_ms=%.1f",
+                        connect_host,
+                        self._tunnel_host,
+                        self._diagnostics["proxy_tunnel_seconds"] * 1000,
+                    )
+                    raise
+                self._diagnostics["proxy_tunnel_seconds"] = (
+                    time.perf_counter() - tunnel_started
+                )
+                server_hostname = self._tunnel_host
+            else:
+                self.sock = raw_socket
+                server_hostname = self.host
+
+            tls_started = time.perf_counter()
+            try:
+                self.sock.settimeout(
+                    max(attempt_deadline - time.perf_counter(), 0.001)
+                )
+                self.sock = self._context.wrap_socket(
+                    self.sock, server_hostname=server_hostname
+                )
+            except (OSError, ssl.SSLError) as exc:
+                elapsed = time.perf_counter() - tls_started
+                self._diagnostics["stage"] = "tls"
+                failures.append(exc)
+                logger.warning(
+                    "XFetch TLS failed host=%s address=%s duration_ms=%.1f "
+                    "error=%s",
+                    server_hostname,
+                    address,
+                    elapsed * 1000,
+                    type(exc).__name__,
+                )
+                try:
+                    self.sock.close()
+                finally:
+                    self.sock = None
+                if isinstance(exc, ssl.SSLCertVerificationError):
+                    raise
+                continue
+
+            self._diagnostics["tls_seconds"] = time.perf_counter() - tls_started
+            self._diagnostics["stage"] = "tls_complete"
+            logger.info(
+                "XFetch TLS established host=%s address=%s duration_ms=%.1f "
+                "version=%s certificate_verification=enabled",
+                server_hostname,
+                address,
+                self._diagnostics["tls_seconds"] * 1000,
+                self.sock.version(),
+            )
+            return
+
+        if failures:
+            raise failures[-1]
+        raise OSError(f"No usable addresses returned for {connect_host}")
+
+    def request(self, *args, **kwargs) -> None:
+        self._diagnostics["stage"] = "request_sending"
+        super().request(*args, **kwargs)
+        self._diagnostics["http_request_sent"] = True
+        self._diagnostics["request_sent_at"] = time.perf_counter()
+        self._diagnostics["stage"] = "awaiting_response"
+
+    def getresponse(self):
+        started = time.perf_counter()
+        try:
+            response = super().getresponse()
+        except Exception:
+            self._diagnostics["response_headers_seconds"] = (
+                time.perf_counter() - started
+            )
+            raise
+        self._diagnostics["response_headers_seconds"] = time.perf_counter() - started
+        return response
+
+
+class _InstrumentedHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, diagnostics: Dict[str, Any]):
+        super().__init__(context=ssl.create_default_context())
+        self._diagnostics = diagnostics
+
+    def https_open(self, req):
+        return self.do_open(
+            _InstrumentedHTTPSConnection,
+            req,
+            context=self._context,
+            diagnostics=self._diagnostics,
+        )
+
+
+def _open_request(req, timeout: int, diagnostics: Dict[str, Any]):
+    opener = urllib.request.build_opener(_InstrumentedHTTPSHandler(diagnostics))
+    return opener.open(req, timeout=timeout)
+
+
+def _request_duration_ms(diagnostics: Dict[str, Any]) -> Optional[float]:
+    sent_at = diagnostics.get("request_sent_at")
+    if sent_at is None:
+        return None
+    return (time.perf_counter() - sent_at) * 1000
+
+
+def _authentication_stage(diagnostics: Dict[str, Any]) -> str:
+    if not diagnostics.get("http_request_sent"):
+        return "not_started"
+    if diagnostics.get("http_status") == 401:
+        return "rejected"
+    if diagnostics.get("http_status") is not None:
+        return "response_received"
+    return "awaiting_response"
+
 
 # Sentiment lexicon for linguistic features
 AFINN_SAMPLE = {
@@ -134,9 +345,26 @@ class XFetchClient:
         req.add_header("Authorization", f"Bearer {self.api_key}")
         req.add_header("User-Agent", "SocialBotDetectionAuditor/2.0")
 
+        parsed_url = urlsplit(url)
+        diagnostics: Dict[str, Any] = {"stage": "before_dns"}
+        request_started = time.perf_counter()
+        proxies = urllib.request.getproxies()
+        logger.info(
+            "XFetch request starting host=%s endpoint=/v1/profiles/by-username "
+            "proxy_configured=%s authentication_stage=not_started "
+            "certificate_verification=enabled",
+            parsed_url.hostname,
+            bool(proxies),
+        )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with _open_request(req, timeout=15, diagnostics=diagnostics) as resp:
+                diagnostics["stage"] = "response_received"
+                diagnostics["http_status"] = getattr(resp, "status", 200)
+                body_started = time.perf_counter()
                 data = json.loads(resp.read().decode("utf-8"))
+                diagnostics["response_body_seconds"] = (
+                    time.perf_counter() - body_started
+                )
                 user_data = data.get("data", {}).get("user", {})
                 recent_tweets = data.get("data", {}).get("recent_tweets", [])
                 meta = data.get("meta", {})
@@ -151,12 +379,32 @@ class XFetchClient:
                 }, None, None, 200
 
         except urllib.error.HTTPError as e:
+            diagnostics["stage"] = "response_received"
+            diagnostics["http_status"] = e.code
             body_text = ""
+            body_started = time.perf_counter()
             try:
                 body_text = e.read().decode("utf-8")
             except Exception:
                 pass
+            finally:
+                diagnostics["response_body_seconds"] = (
+                    time.perf_counter() - body_started
+                )
+                e.close()
 
+            logger.warning(
+                "XFetch HTTP response host=%s status=%d request_sent=%s "
+                "authentication_stage=%s request_duration_ms=%.1f "
+                "response_headers_ms=%.1f duration_ms=%.1f",
+                parsed_url.hostname,
+                e.code,
+                diagnostics.get("http_request_sent", False),
+                _authentication_stage(diagnostics),
+                _request_duration_ms(diagnostics) or 0.0,
+                diagnostics.get("response_headers_seconds", 0.0) * 1000,
+                (time.perf_counter() - request_started) * 1000,
+            )
             if e.code == 401:
                 return None, None, "xfetch Authentication failed: Invalid or expired API Key.", 401
             elif e.code == 402:
@@ -181,9 +429,49 @@ class XFetchClient:
                 return None, None, detail, e.code
 
         except urllib.error.URLError as e:
+            logger.warning(
+                "XFetch request failed host=%s stage=%s request_sent=%s "
+                "authentication_stage=%s request_duration_ms=%s "
+                "duration_ms=%.1f reason_type=%s",
+                parsed_url.hostname,
+                diagnostics.get("stage"),
+                diagnostics.get("http_request_sent", False),
+                _authentication_stage(diagnostics),
+                _request_duration_ms(diagnostics),
+                (time.perf_counter() - request_started) * 1000,
+                type(e.reason).__name__,
+            )
             return None, None, f"Network timeout connecting to xfetch API: {e.reason}", 504
         except Exception as e:
+            logger.error(
+                "XFetch request failed host=%s stage=%s request_sent=%s "
+                "authentication_stage=%s request_duration_ms=%s "
+                "duration_ms=%.1f error_type=%s",
+                parsed_url.hostname,
+                diagnostics.get("stage"),
+                diagnostics.get("http_request_sent", False),
+                _authentication_stage(diagnostics),
+                _request_duration_ms(diagnostics),
+                (time.perf_counter() - request_started) * 1000,
+                type(e).__name__,
+            )
             return None, None, f"Unexpected error during xfetch lookup: {str(e)}", 500
+        finally:
+            if diagnostics.get("stage") == "response_received":
+                logger.info(
+                    "XFetch request complete host=%s status=%s request_sent=%s "
+                    "authentication_stage=%s request_duration_ms=%.1f "
+                    "response_headers_ms=%.1f response_body_ms=%.1f "
+                    "duration_ms=%.1f",
+                    parsed_url.hostname,
+                    diagnostics.get("http_status"),
+                    diagnostics.get("http_request_sent", False),
+                    _authentication_stage(diagnostics),
+                    _request_duration_ms(diagnostics) or 0.0,
+                    diagnostics.get("response_headers_seconds", 0.0) * 1000,
+                    diagnostics.get("response_body_seconds", 0.0) * 1000,
+                    (time.perf_counter() - request_started) * 1000,
+                )
 
 
 def extract_features_from_xfetch_data(
@@ -318,4 +606,3 @@ def extract_features_from_xfetch_data(
             missing_features.append(feat)
 
     return extracted, available_features, missing_features
-

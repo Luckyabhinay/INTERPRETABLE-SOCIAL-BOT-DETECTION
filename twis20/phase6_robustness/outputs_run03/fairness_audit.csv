@@ -1,0 +1,3 @@
+audit,status,reason
+demographic_fairness,unavailable,No protected or demographic subgroup labels are present; none were inferred from account identity or text.
+legitimate_non_sensitive_groups,unavailable,No approved non-sensitive subgroup definition was supplied; overlap cohorts are reported separately as robustness diagnostics.

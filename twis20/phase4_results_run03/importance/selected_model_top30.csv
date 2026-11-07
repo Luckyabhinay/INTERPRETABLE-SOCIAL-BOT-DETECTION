@@ -1,0 +1,31 @@
+feature,importance
+profile.verified__true,0.014750401
+profile.verified__false,0.013168648
+tweet.tfidf.for,0.0027035533
+tweet.tfidf.to,0.0020098328
+tweet.tfidf.nunca,0.0019080555
+profile.listed_count,0.0016231331
+tweet.tfidf.the feels,0.0015348229
+tweet.tfidf.the,0.0014938501
+tweet.tfidf.didn know,0.0014328867
+tweet.tfidf.it made,0.0012952493
+tweet.tfidf.to eat,0.001215089
+tweet.tfidf.me know,0.0012126405
+tweet.tfidf.and,0.0012046447
+tweet.tfidf.consistently,0.0011645817
+tweet.median_char_count,0.0011614362
+tweet.tfidf.before but,0.0011354918
+tweet.tfidf.je,0.0011192723
+tweet.tfidf.told me,0.0011063544
+tweet.tfidf.first and,0.0010759452
+tweet.tfidf.because have,0.0010608506
+tweet.tfidf.my dad,0.0010564274
+tweet.tfidf.connection,0.0010559047
+tweet.tfidf.like on,0.0010531554
+tweet.tfidf.cabinet,0.0010491018
+tweet.tfidf.that point,0.0010460718
+tweet.tfidf.joe biden,0.0010450996
+tweet.tfidf.see him,0.0010429936
+tweet.tfidf.missile,0.0010427058
+tweet.tfidf.inspire,0.0010345678
+tweet.tfidf.es una,0.0010314528

@@ -1,0 +1,7 @@
+{
+  "seed": 20261106,
+  "selection_split": "dev",
+  "test_labels_accessed": "after selection file written",
+  "threshold_objective": "max development macro F1",
+  "test_used_for_tuning": false
+}

@@ -1,0 +1,2 @@
+scenario,n,genuine_n,bot_n,accuracy,precision_bot,recall_bot,macro_f1,balanced_accuracy,roc_auc,pr_auc,false_positive_rate,tn,fp,fn,tp
+unchanged_baseline,1183,543,640,0.8486897717666948,0.8288159771754636,0.9078125,0.8459416889470908,0.8434090124309392,0.9302572513812155,0.9335821863091537,0.22099447513812154,423,120,59,581

@@ -12,3 +12,16 @@ __pycache__/
 /lightweight_audit_package.zip
 /phase3_results/
 /*.csv
+
+# Local reference material and generated backups
+/Identification of Spambots and Fake Followers.pdf
+/app.py.bak
+/app.py.bak_approved
+/desktop.ini
+/ood_validator.py.bak_approved
+/x_api_client.py.bak
+/xfetch_client.py.bak
+/xfetch_client.py.bak_approved
+/twis20/phase4_extraction.err
+/twis20/phase4_extraction.log
+/twis20/TwiBot-20-*/

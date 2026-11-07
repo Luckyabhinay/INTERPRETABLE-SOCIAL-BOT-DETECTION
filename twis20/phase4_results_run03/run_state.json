@@ -1,0 +1,8 @@
+{
+  "status": "complete",
+  "completed_candidates": 50,
+  "selected_experiment": "profile_text_network",
+  "selected_algorithm": "xgboost",
+  "selected_setting": "depth_8",
+  "report_recovered_from_saved_artifacts": true
+}

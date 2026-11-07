@@ -1,0 +1,55 @@
+{
+  "model_type": "<class 'xgboost.sklearn.XGBClassifier'>",
+  "model_inputs": 50080,
+  "feature_names": 50080,
+  "sample_rows": 200,
+  "shap_shape": [
+    200,
+    50080
+  ],
+  "shap_all_finite": true,
+  "error_shap_shapes": [
+    [
+      30,
+      50080
+    ],
+    [
+      30,
+      50080
+    ]
+  ],
+  "error_shap_all_finite": true,
+  "shap_output": "raw XGBoost margin",
+  "max_additivity_residual": 6.060789019102231e-06,
+  "error_analysis_max_additivity_residual": 1.7521379049867392e-06,
+  "input_fingerprints_before": {
+    "feature_manifest.json": "b8d32cb551c1e3a6076526417e11f6f59ec4e121ff94b2ec5cf55cfa28bef69e",
+    "features_profile.npz": "44194a23f69a0247c952a7f6dc35adbe47fc9319ea90a71e303dae26c48e3e22",
+    "features_text_summary.npz": "ba9b002562bdb57a65675747e86af4bea9e2789341e456538e4b5e8cdb77aada",
+    "features_text_tfidf.npz": "6087fa1682bb2575a07028c669569bd51c468b8055dfa1060b9625a644add804",
+    "features_network.npz": "cb202edb99a61c7e9d505240418c082c363c83a15a06310ac7632ad4976ba263",
+    "model": "72d1a3374efebf032cf4cf84fe35b30e682e0c587e6eae7f13867bb692dc4df7",
+    "selection_lock": "8b2502d2d56bb6e5d7c402715f7b852bd0406a920159d36601fcb4896cc98f83",
+    "official_test_metrics": "30b9ef78faf37cb946a352609c0011dcb29d8f48287e035e50b6df9a17d7b368"
+  },
+  "input_fingerprints_after": {
+    "feature_manifest.json": "b8d32cb551c1e3a6076526417e11f6f59ec4e121ff94b2ec5cf55cfa28bef69e",
+    "features_profile.npz": "44194a23f69a0247c952a7f6dc35adbe47fc9319ea90a71e303dae26c48e3e22",
+    "features_text_summary.npz": "ba9b002562bdb57a65675747e86af4bea9e2789341e456538e4b5e8cdb77aada",
+    "features_text_tfidf.npz": "6087fa1682bb2575a07028c669569bd51c468b8055dfa1060b9625a644add804",
+    "features_network.npz": "cb202edb99a61c7e9d505240418c082c363c83a15a06310ac7632ad4976ba263",
+    "model": "72d1a3374efebf032cf4cf84fe35b30e682e0c587e6eae7f13867bb692dc4df7",
+    "selection_lock": "8b2502d2d56bb6e5d7c402715f7b852bd0406a920159d36601fcb4896cc98f83",
+    "official_test_metrics": "30b9ef78faf37cb946a352609c0011dcb29d8f48287e035e50b6df9a17d7b368"
+  },
+  "phase4_fingerprint_match": true,
+  "selection_lock_sha256_before": "8b2502d2d56bb6e5d7c402715f7b852bd0406a920159d36601fcb4896cc98f83",
+  "selection_lock_sha256_after": "8b2502d2d56bb6e5d7c402715f7b852bd0406a920159d36601fcb4896cc98f83",
+  "phase4_test_metrics_sha256_before": "30b9ef78faf37cb946a352609c0011dcb29d8f48287e035e50b6df9a17d7b368",
+  "phase4_test_metrics_sha256_after": "30b9ef78faf37cb946a352609c0011dcb29d8f48287e035e50b6df9a17d7b368",
+  "locked_threshold": 0.5599999999999997,
+  "test_error_counts": {
+    "false_positive": 120,
+    "false_negative": 59
+  }
+}

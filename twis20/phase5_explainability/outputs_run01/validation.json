@@ -1,0 +1,22 @@
+{
+  "model_type": "<class 'xgboost.sklearn.XGBClassifier'>",
+  "model_inputs": 50080,
+  "feature_names": 50080,
+  "sample_rows": 200,
+  "shap_shape": [
+    200,
+    50080
+  ],
+  "shap_output": "raw XGBoost margin",
+  "max_additivity_residual": 6.060789019102231e-06,
+  "input_fingerprints": {
+    "feature_manifest.json": "b8d32cb551c1e3a6076526417e11f6f59ec4e121ff94b2ec5cf55cfa28bef69e",
+    "features_profile.npz": "44194a23f69a0247c952a7f6dc35adbe47fc9319ea90a71e303dae26c48e3e22",
+    "features_text_summary.npz": "ba9b002562bdb57a65675747e86af4bea9e2789341e456538e4b5e8cdb77aada",
+    "features_text_tfidf.npz": "6087fa1682bb2575a07028c669569bd51c468b8055dfa1060b9625a644add804",
+    "features_network.npz": "cb202edb99a61c7e9d505240418c082c363c83a15a06310ac7632ad4976ba263",
+    "model": "72d1a3374efebf032cf4cf84fe35b30e682e0c587e6eae7f13867bb692dc4df7"
+  },
+  "phase4_fingerprint_match": true,
+  "phase4_test_metrics_unchanged": "experiment,configuration,algorithm,setting,threshold,accuracy,precision_bot,recall_bot,f1_bot,macro_f1,balanced_accuracy,roc_auc,pr_auc,genuine_recall,false_positive_rate,tn,fp,fn,tp\nprofile_text_network,E_profile_text_network,xgboost,depth_8,0.5599999999999997,0.8486897717666948,0.8288159771754636,0.9078125,0.866517524235645,0.8459416889470908,0.8434090124309392,0.9302572513812155,0.9335821863091537,0.7790055248618785,0.22099447513812154,423,120,59,581\n"
+}

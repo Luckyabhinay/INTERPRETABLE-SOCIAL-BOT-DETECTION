@@ -1,0 +1,39 @@
+{
+  "selection": {
+    "experiment": "profile_text",
+    "configuration": "C_profile_text",
+    "algorithm": "xgboost",
+    "setting": "depth_8",
+    "threshold": 0.48999999999999977,
+    "metrics": {
+      "accuracy": 0.8604651162790697,
+      "precision_bot": 0.8245496997998666,
+      "recall_bot": 0.9485801995395242,
+      "f1_bot": 0.8822269807280514,
+      "macro_f1": 0.8555325775009552,
+      "balanced_accuracy": 0.8504671242518713,
+      "roc_auc": 0.9281478494507098,
+      "pr_auc": 0.9307552483637502,
+      "genuine_recall": 0.7523540489642184,
+      "false_positive_rate": 0.24764595103578155,
+      "tn": 799,
+      "fp": 263,
+      "fn": 67,
+      "tp": 1236
+    },
+    "candidate_record": "selected_candidate_record.json",
+    "candidate_source_run": "C:\\Users\\guntu\\OneDrive\\Desktop\\ml project\\twis20\\phase4_results_run03"
+  },
+  "selection_metadata": {
+    "selection_split": "dev",
+    "test_metrics_used": false,
+    "ranking_metrics": [
+      "macro_f1",
+      "pr_auc",
+      "duration_seconds"
+    ],
+    "feature_input_fingerprint": "04c16326e1ebc7d4357b7c1b38578be7c8af3d4f1f63f3d4c3c093a66087efe3",
+    "selection_candidates": 10,
+    "selection_source": "completed Phase 4 profile_text candidate records"
+  }
+}

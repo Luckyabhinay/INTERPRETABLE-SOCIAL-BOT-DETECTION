@@ -107,7 +107,7 @@ class TestXFetchIntegration(unittest.TestCase):
         self.assertIn("followers_count", avail)
         self.assertIn("avg_favorites", avail)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_02_endpoint_with_xfetch(self, mock_urlopen):
         """Test POST /analyze_x returns predictions and explanations via xfetch"""
         resp_mock = BytesIO(json.dumps(MOCK_XFETCH_PAYLOAD).encode("utf-8"))
@@ -118,14 +118,17 @@ class TestXFetchIntegration(unittest.TestCase):
         data = res.json()
         self.assertEqual(data["status"], "success")
         self.assertEqual(data["username"], "jack")
-        self.assertIn(data["prediction"], ["Likely Genuine", "Likely Bot"])
+        self.assertIn(
+            data["prediction"],
+            ["Likely Genuine", "Likely Bot", "Unable to Reliably Classify"],
+        )
         self.assertIn("credits", data)
         self.assertEqual(data["credits"]["charged"], 21)
         self.assertEqual(data["credits"]["remaining"], 979)
         self.assertTrue(len(data["explanation"]) > 0)
         self.assertTrue(len(data["lime_explanations"]) > 0)
 
-    @patch("urllib.request.urlopen")
+    @patch("xfetch_client._open_request")
     def test_03_xfetch_credits_depleted_402(self, mock_urlopen):
         """Test handling of 402 credits depleted error"""
         err_res = urllib.error.HTTPError(
@@ -145,4 +148,3 @@ class TestXFetchIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

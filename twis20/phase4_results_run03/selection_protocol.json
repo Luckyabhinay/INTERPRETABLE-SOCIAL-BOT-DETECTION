@@ -1,0 +1,9 @@
+{
+  "seed": 20261106,
+  "selection_split": "dev",
+  "test_labels_accessed": "only after valid locked selection is written",
+  "threshold_objective": "max development macro F1",
+  "test_used_for_tuning": false,
+  "lightgbm_n_jobs": 1,
+  "resume_supported": false
+}
