@@ -66,12 +66,10 @@ def stage_2_model_and_features():
     print(f"  [PASS] LightGBM Model Loaded: {type(lgb).__name__} ({os.path.getsize(lgb_path):,} bytes)")
     print(f"  [PASS] XGBoost Model Loaded : {type(xgb).__name__} ({os.path.getsize(xgb_path):,} bytes)")
     
-    # Check feature name alignment
     lgb_features = list(lgb.feature_name_)
     print(f"  [PASS] Feature count in trained model: {len(lgb_features)}")
     print(f"         Feature names: {lgb_features[:5]} ... (total {len(lgb_features)})")
     
-    # Verify alphabetical sorting convention
     assert lgb_features == sorted(lgb_features), "Feature order in model is not canonical sorted order"
     print("  [PASS] Canonical alphabetical feature alignment verified.")
     return lgb, xgb, lgb_features
@@ -103,7 +101,6 @@ def stage_3_results_check():
 
 def stage_4_prediction_consistency(lgb, xgb, feature_names):
     header("Live Prediction & Model Consistency Check", 4)
-    # Define standardized synthetic test profiles
     human_profile = {
         "followers_count": 1450, "friends_count": 420, "status_count": 4500,
         "favorites_count": 1800, "listed_count": 25, "verified": 0,
@@ -159,7 +156,6 @@ def stage_5_xai_check(lgb, feature_names):
     top_3 = shap_df.head(3)["Feature"].tolist()
     print(f"         Top 3 Most Influential Features: {top_3}")
     
-    # LIME case studies check
     lime_file = os.path.join(BASE_DIR, "phase3_results", "lime_case_studies.txt")
     assert os.path.exists(lime_file), f"Missing {lime_file}"
     content = open(lime_file, "r", encoding="utf-8").read()
@@ -172,13 +168,11 @@ def stage_6_fastapi_check():
     import asyncio
     from app import app, web_dashboard, predict_and_explain, AccountInput
     
-    # Check dashboard HTML
     resp_get = asyncio.run(web_dashboard())
     assert resp_get.status_code == 200
     assert "Interpretable Social Bot Detection" in resp_get.body.decode("utf-8")
     print("  [PASS] GET / endpoint renders dashboard HTML.")
     
-    # Check API model input schema
     test_input = AccountInput(
         followers_count=1000,
         friends_count=300,
@@ -221,4 +215,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

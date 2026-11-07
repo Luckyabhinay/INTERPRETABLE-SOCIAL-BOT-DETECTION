@@ -78,11 +78,9 @@ def main():
     X17 = df17[common_feats]
     y17 = df17["label"].values
 
-    # Load champion LightGBM
     model_path = os.path.join(BASE_DIR, "models", "tuned_lightgbm_cresci15.joblib")
     clf = joblib.load(model_path)
 
-    # 1. Evaluate on full Cresci-17
     preds17 = clf.predict(X17)
     probs17 = clf.predict_proba(X17)[:, 1]
 
@@ -99,7 +97,6 @@ def main():
     print(f"    Recall   : {rec_full:.4f}")
     print(f"    F1-Score : {f1_full:.4f}")
 
-    # 2. Detailed Per-Subtype Breakdown
     print("\n[2] Detailed Per-Subtype Performance Breakdown:")
     subtype_rows = []
 
@@ -137,7 +134,6 @@ def main():
             "Mean_Bot_Probability": round(float(np.mean(sub_prob)), 5)
         })
 
-    # 3. ROOT CAUSE EMPIRICAL DIAGNOSIS: Genuine Accounts With vs Without Tweets
     print("\n[3] ROOT CAUSE EMPIRICAL DIAGNOSIS (Genuine Accounts in Cresci-17):")
     gen_mask = df17["subtype"] == "genuine"
     c17_gen = df17[gen_mask].copy()
@@ -203,7 +199,6 @@ def main():
     sub_df.to_csv(SUBTYPE_CSV, index=False)
     print(f"\n[✓] Saved Subtype Breakdown CSV to: {SUBTYPE_CSV}")
 
-    # 4. DOMAIN ADAPTATION & ALTERNATIVE FEATURE STRATEGY: Profile-Only Model
     print("\n[4] EVALUATION OF DOMAIN ADAPTATION: PROFILE-ONLY RESILIENT MODEL")
     profile_features = [
         "followers_count", "friends_count", "ffratio", "listed_count",
@@ -220,12 +215,10 @@ def main():
     acc_prof_all = accuracy_score(y17, preds17_prof)
     f1_prof_all = f1_score(y17, preds17_prof, zero_division=0)
 
-    # Genuine accuracy under profile-only model
     gen_acc_prof = accuracy_score(y17[gen_mask], preds17_prof[gen_mask])
     print(f"    Profile-Only Model -> Overall Cresci-17 Accuracy : {acc_prof_all*100:.2f}% | F1: {f1_prof_all:.4f}")
     print(f"    Profile-Only Model -> Genuine Cresci-17 Accuracy : {gen_acc_prof*100:.2f}% (vs 30.54% with full features)")
 
-    # 5. Save Summary Cross-Dataset Results CSV
     cross_results = [
         {
             "Experiment": "Train Cresci-15 -> Test Cresci-17 (Full 34 Features)",

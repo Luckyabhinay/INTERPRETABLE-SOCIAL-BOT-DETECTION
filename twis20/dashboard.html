@@ -143,6 +143,30 @@
     .audit-status.pass { color: var(--green); }.audit-status.fail { color: var(--red); }
     .audit-details { margin: 10px 0 0; color: var(--muted); font-size: 9px; line-height: 1.6; }
     .research-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+    .wide-panel { grid-column: 1 / -1; }
+    .explainability-notice { margin: 0 0 16px; padding: 11px 12px; border-left: 3px solid #7693bb; background: #f6f8fb; color: #53647b; font-size: 10px; line-height: 1.6; }
+    .explainability-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 14px; color: var(--muted); font-size: 10px; }
+    .explainability-columns { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,.85fr); gap: 18px; }
+    .explainability-heading { margin: 0 0 9px; color: #42536b; font-size: 11px; font-weight: 680; }
+    .shap-list { display: grid; gap: 7px; }
+    .shap-row { display: grid; grid-template-columns: minmax(110px,1fr) minmax(70px,1.2fr) 52px; align-items: center; gap: 9px; min-height: 21px; }
+    .shap-name { overflow: hidden; color: #4a5b72; font: 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .shap-track { height: 6px; overflow: hidden; border-radius: 2px; background: #edf1f6; }
+    .shap-fill { height: 100%; background: #5479a8; }
+    .shap-number { color: #63738a; font-size: 9px; text-align: right; font-variant-numeric: tabular-nums; }
+    .group-list { display: grid; gap: 12px; }
+    .group-row { display: grid; grid-template-columns: 94px 1fr 48px; align-items: center; gap: 8px; color: #4c5d74; font-size: 10px; }
+    .group-track { height: 7px; overflow: hidden; border-radius: 2px; background: #edf1f6; }
+    .group-fill { height: 100%; background: #7893b5; }
+    .group-value { color: #67778c; font-size: 9px; text-align: right; }
+    .example-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 18px; }
+    .example-card { padding: 12px; border: 1px solid #edf0f5; border-radius: 6px; background: #fcfdff; }
+    .example-title { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; margin: 0 0 8px; color: #3e5069; font-size: 10px; font-weight: 670; }
+    .example-score { color: #75839a; font-weight: 500; }
+    .example-contributions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .example-contributions strong { display: block; margin-bottom: 5px; color: #607087; font-size: 9px; }
+    .example-feature { margin-top: 4px; overflow: hidden; color: #69788d; font: 9px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .explainability-state { color: var(--muted); font-size: 10px; }
     .info-panel { scroll-margin-top: 82px; }
     .info-body { padding: 16px 19px 18px; }
     .info-body p { margin: 0; color: var(--muted); font-size: 11px; }
@@ -174,8 +198,11 @@
       .result-content { min-height: 310px; padding: 15px; }
       .empty-state, .loading-state { min-height: 278px; }
       .research-grid { grid-template-columns: 1fr; gap: 13px; margin-top: 14px; }
+      .wide-panel { grid-column: auto; }
+      .explainability-columns { grid-template-columns: 1fr; gap: 16px; }
       .audit-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
       .metric-list { grid-template-columns: repeat(2,1fr); }
+      .example-list { grid-template-columns: 1fr; }
       .panel-head { padding: 15px 16px 12px; }.lookup-body { padding: 16px; }
       .result-head { padding: 0 15px; }
     }
@@ -321,6 +348,26 @@
           <p>These are benchmark results, not estimates of accuracy on current live accounts. The live raw score is uncalibrated. Selection was based on development data; official test labels were kept separate from model selection.</p>
         </div>
       </article>
+      <article class="panel info-panel wide-panel" id="benchmark-explainability">
+        <div class="panel-head"><h2 class="panel-title">Benchmark model explainability</h2><p class="panel-subtitle">SHAP feature contributions · independent of live-account scoring</p></div>
+        <div class="info-body">
+          <p class="explainability-notice">These results describe the locked 50,080-feature profile + text + network benchmark model, not the 50,072-feature live model. SHAP values show how features contributed to model outputs for benchmark examples; they are not causal explanations. Examples are from the development split and do not identify accounts.</p>
+          <div class="explainability-meta" id="explainabilityMeta"><span class="explainability-state" id="explainabilityState" aria-live="polite">Loading saved benchmark explanations…</span></div>
+          <div id="explainabilityContent" hidden>
+            <div class="explainability-columns">
+              <section aria-labelledby="globalShapHeading">
+                <h3 class="explainability-heading" id="globalShapHeading">Global feature contribution · mean absolute SHAP</h3>
+                <div class="shap-list" id="globalShapList"></div>
+              </section>
+              <section aria-labelledby="groupShapHeading">
+                <h3 class="explainability-heading" id="groupShapHeading">Feature-group contribution</h3>
+                <div class="group-list" id="groupShapList"></div>
+              </section>
+            </div>
+            <div class="example-list" id="individualShapExamples"></div>
+          </div>
+        </div>
+      </article>
     </section>
     <footer class="footer">TwiBot-20 research interface · Live profile and text analysis · <a href="/cresci15" style="color:var(--blue)">Cresci-15 dashboard</a></footer>
   </main>
@@ -349,6 +396,116 @@
 
     function displayNumber(value) {
       return typeof value === 'number' && Number.isFinite(value) ? Math.round(value).toLocaleString() : 'N/A';
+    }
+
+    function appendText(parent, tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      element.textContent = text;
+      parent.append(element);
+      return element;
+    }
+
+    function renderBenchmarkExplainability(data) {
+      const state = document.getElementById('explainabilityState');
+      const content = document.getElementById('explainabilityContent');
+      const validRows = Array.isArray(data.global_features) && Array.isArray(data.feature_groups)
+        && Array.isArray(data.individual_examples);
+      if (data.status !== 'success' || !validRows || data.feature_count !== 50080) {
+        state.textContent = 'Saved benchmark explanation artifacts are unavailable or failed validation.';
+        return;
+      }
+
+      const meta = document.getElementById('explainabilityMeta');
+      state.textContent = '';
+      appendText(meta, 'span', '', data.model || 'TwiBot-20 benchmark model');
+      appendText(meta, 'span', '', `${data.feature_count.toLocaleString()} features`);
+      appendText(meta, 'span', '', `${data.explanation_sample_size} development examples`);
+      appendText(meta, 'span', '', `Decision threshold ${(data.threshold * 100).toFixed(0)}% (uncalibrated Bot-class score)`);
+      const notice = appendText(meta, 'span', 'explainability-state', data.causality_note || '');
+      notice.setAttribute('role', 'note');
+
+      const globalList = document.getElementById('globalShapList');
+      const maxGlobal = Math.max(...data.global_features.map(row => Number(row.mean_abs_shap) || 0), 0);
+      for (const row of data.global_features) {
+        const value = Number(row.mean_abs_shap);
+        if (!row.feature || !Number.isFinite(value) || value < 0) continue;
+        const line = document.createElement('div');
+        line.className = 'shap-row';
+        appendText(line, 'span', 'shap-name', row.feature);
+        const track = document.createElement('span');
+        track.className = 'shap-track';
+        const fill = document.createElement('span');
+        fill.className = 'shap-fill';
+        fill.style.display = 'block';
+        fill.style.width = `${maxGlobal ? value / maxGlobal * 100 : 0}%`;
+        track.append(fill);
+        line.append(track);
+        appendText(line, 'span', 'shap-number', value.toFixed(3));
+        globalList.append(line);
+      }
+
+      const groupList = document.getElementById('groupShapList');
+      const maxGroup = Math.max(...data.feature_groups.map(row => Number(row.mean_abs_shap) || 0), 0);
+      for (const row of data.feature_groups) {
+        const value = Number(row.mean_abs_shap);
+        if (!row.feature_group || !Number.isFinite(value) || value < 0) continue;
+        const line = document.createElement('div');
+        line.className = 'group-row';
+        appendText(line, 'span', '', row.feature_group.replaceAll('_', ' '));
+        const track = document.createElement('span');
+        track.className = 'group-track';
+        const fill = document.createElement('span');
+        fill.className = 'group-fill';
+        fill.style.display = 'block';
+        fill.style.width = `${maxGroup ? value / maxGroup * 100 : 0}%`;
+        track.append(fill);
+        line.append(track);
+        appendText(line, 'span', 'group-value', value.toFixed(3));
+        groupList.append(line);
+      }
+
+      const exampleList = document.getElementById('individualShapExamples');
+      for (const example of data.individual_examples.slice(0, 4)) {
+        if (!['Bot', 'Genuine'].includes(example.actual_class) || !['Bot', 'Genuine'].includes(example.predicted_class)) continue;
+        const card = document.createElement('article');
+        card.className = 'example-card';
+        const title = document.createElement('h3');
+        title.className = 'example-title';
+        appendText(title, 'span', '', `Development example ${example.sample_row}: ${example.predicted_class} (reference: ${example.actual_class})`);
+        appendText(title, 'span', 'example-score', Number.isFinite(example.bot_class_score_uncalibrated)
+          ? `Raw Bot-class score ${(example.bot_class_score_uncalibrated * 100).toFixed(1)}%`
+          : 'Raw score unavailable');
+        card.append(title);
+        const contributions = document.createElement('div');
+        contributions.className = 'example-contributions';
+        for (const [heading, key] of [['Contributed toward Bot', 'toward_bot'], ['Contributed toward Genuine', 'toward_genuine']]) {
+          const column = document.createElement('div');
+          appendText(column, 'strong', '', heading);
+          const features = Array.isArray(example[key]) ? example[key].slice(0, 3) : [];
+          for (const feature of features) {
+            if (typeof feature.feature !== 'string' || !Number.isFinite(Number(feature.shap))) continue;
+            appendText(column, 'div', 'example-feature', `${feature.feature} (${Number(feature.shap).toFixed(3)})`);
+          }
+          contributions.append(column);
+        }
+        card.append(contributions);
+        exampleList.append(card);
+      }
+      content.hidden = false;
+      state.textContent = 'Artifact validation passed.';
+    }
+
+    async function loadBenchmarkExplainability() {
+      const state = document.getElementById('explainabilityState');
+      try {
+        const response = await fetch('/twibot20/benchmark-explainability');
+        const data = await response.json();
+        if (!response.ok || !data || typeof data !== 'object') throw new Error('Invalid response');
+        renderBenchmarkExplainability(data);
+      } catch {
+        state.textContent = 'Benchmark explanations could not be loaded. Live analysis remains available.';
+      }
     }
 
     function renderAudit(audit) {
@@ -516,6 +673,7 @@
         menuToggle.setAttribute('aria-expanded', 'false');
       }
     });
+    loadBenchmarkExplainability();
   </script>
 </body>
 </html>

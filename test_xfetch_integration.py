@@ -17,7 +17,6 @@ from unittest.mock import patch, MagicMock
 from io import BytesIO
 import urllib.error
 
-# Dummy testing credentials
 os.environ["XFETCH_API_KEY"] = "TEST_XFETCH_MOCK_KEY_789"
 
 from fastapi.testclient import TestClient

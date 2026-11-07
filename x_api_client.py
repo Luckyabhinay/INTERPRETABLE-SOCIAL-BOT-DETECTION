@@ -79,13 +79,10 @@ def sanitize_username(input_str: str) -> str:
     if not input_str:
         return ""
     s = input_str.strip()
-    # Check if URL
     url_match = re.search(r'(?:https?://)?(?:www\.)?(?:twitter\.com|x\.com)/([A-Za-z0-9_]{1,25})', s, re.IGNORECASE)
     if url_match:
         return url_match.group(1)
-    # Strip leading @ or trailing slashes/whitespace
     s = s.lstrip('@').strip().strip('/')
-    # Validate Twitter username rules (alphanumeric + underscore, 1-15 chars typically, up to 25)
     clean_match = re.match(r'^[A-Za-z0-9_]{1,25}$', s)
     if clean_match:
         return clean_match.group(0)
@@ -93,7 +90,6 @@ def sanitize_username(input_str: str) -> str:
 
 class XApiClient:
     def __init__(self, bearer_token: Optional[str] = None):
-        # Check argument, then environment variable, then optional .env file
         token = bearer_token or os.environ.get("X_BEARER_TOKEN", "").strip()
         if not token:
             env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -218,16 +214,13 @@ def extract_features_from_x_data(
     desc = user_data.get("description", "") or ""
     verified = 1 if user_data.get("verified", False) else 0
 
-    # 1. Profile counts
     followers_count = float(metrics.get("followers_count", 0))
     friends_count = float(metrics.get("following_count", 0))
     status_count = float(metrics.get("tweet_count", 0))
     listed_count = float(metrics.get("listed_count", 0))
 
-    # 2. Account age in days (from created_at ISO 8601)
     if created_at_str:
         try:
-            # e.g., "2020-03-01T12:00:00.000Z"
             dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
             age_days = max(1.0, (datetime.now(dt.tzinfo) - dt).total_seconds() / 86400.0)
         except Exception:
@@ -239,11 +232,9 @@ def extract_features_from_x_data(
     ffratio = followers_count / (followers_count + friends_count + 1e-5)
     description_binary = 1.0 if len(desc.strip()) > 0 else 0.0
 
-    # Profile image default check
     profile_img = user_data.get("profile_image_url", "")
     default_profile_image = 1.0 if ("default_profile" in profile_img or not profile_img) else 0.0
 
-    # Profile completeness score
     comp_fields = [
         bool(user_data.get("location")),
         description_binary == 1.0,
@@ -253,7 +244,6 @@ def extract_features_from_x_data(
     ]
     profile_completeness = sum(1 for c in comp_fields if c) / len(comp_fields)
 
-    # Initialize feature dict
     extracted: Dict[str, float] = {
         "account_age_days": round(age_days, 1),
         "followers_count": followers_count,
@@ -296,7 +286,7 @@ def extract_features_from_x_data(
         replies = sum(t.get("public_metrics", {}).get("reply_count", 0) for t in tweets_data)
         likes = sum(t.get("public_metrics", {}).get("like_count", 0) for t in tweets_data)
 
-        # Count hashtags, mentions, urls in entities
+
         hashtags = sum(len(t.get("entities", {}).get("hashtags", [])) for t in tweets_data)
         mentions = sum(len(t.get("entities", {}).get("mentions", [])) for t in tweets_data)
         urls = sum(len(t.get("entities", {}).get("urls", [])) for t in tweets_data)
@@ -341,4 +331,3 @@ def extract_features_from_x_data(
             missing_features.append(feat)
 
     return extracted, available_features, missing_features
-

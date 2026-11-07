@@ -22,7 +22,6 @@ from unittest.mock import patch, MagicMock
 from io import BytesIO
 import urllib.error
 
-# Set dummy token for unit testing
 os.environ["X_BEARER_TOKEN"] = "TEST_MOCK_BEARER_TOKEN_ABC123"
 os.environ.pop("XFETCH_API_KEY", None)
 
@@ -30,7 +29,6 @@ from fastapi.testclient import TestClient
 from app import app, load_artifacts
 from x_api_client import sanitize_username, XApiClient, extract_features_from_x_data
 
-# Trigger startup event to load models and explainers
 load_artifacts()
 client = TestClient(app)
 
@@ -113,7 +111,6 @@ class TestLiveXAccountAnalysis(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_02_valid_username_analysis(self, mock_urlopen):
         """Test full pipeline for valid X username with mocked API response"""
-        # Mock user response and tweets response
         user_resp = BytesIO(json.dumps({"data": MOCK_USER_GENUINE}).encode("utf-8"))
         tweets_resp = BytesIO(json.dumps({"data": MOCK_TWEETS}).encode("utf-8"))
         mock_urlopen.side_effect = [user_resp, tweets_resp]
@@ -260,7 +257,7 @@ class TestLiveXAccountAnalysis(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
 
-        # Check SHAP explanation items
+
         self.assertTrue(len(data["explanation"]) > 0)
         for item in data["explanation"]:
             self.assertIn("feature", item)
@@ -269,7 +266,7 @@ class TestLiveXAccountAnalysis(unittest.TestCase):
             self.assertIn("direction", item)
             self.assertIn("Towards", item["direction"])
 
-        # Check LIME explanation items
+
         self.assertTrue(len(data["lime_explanations"]) > 0)
         for item in data["lime_explanations"]:
             self.assertIn("feature_rule", item)

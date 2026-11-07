@@ -19,7 +19,6 @@ from typing import Dict, Any, List, Tuple, Optional
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DIST_FILE = os.path.join(BASE_DIR, "cresci15_training_distributions.json")
 
-# Load precomputed training distribution bounds
 TRAINING_DISTRIBUTIONS = {}
 if os.path.exists(DIST_FILE):
     with open(DIST_FILE, "r", encoding="utf-8") as f:
@@ -58,7 +57,6 @@ def evaluate_feature_compatibility_and_ood(
     is_reliable = True
     recommendation_label = None
 
-    # 1. Window Mismatch Detection
     # Cresci-15 training summed hashtags/mentions over hundreds of tweets (median 989 for humans).
     # When a modern API sample provides <= 50 tweets but the account has a status count > 50,
     # the cumulative counters (e.g. hashtag_count=0, mentions_count=0) are fundamentally window-incompatible
@@ -73,7 +71,6 @@ def evaluate_feature_compatibility_and_ood(
             f"causes cumulative totals to artificially mirror inactive bot profiles."
         )
 
-    # 2. Out-of-Distribution Range Checking against empirical p01 and p99
     for feat, val in feature_dict.items():
         if feat not in TRAINING_DISTRIBUTIONS:
             continue
@@ -84,7 +81,6 @@ def evaluate_feature_compatibility_and_ood(
         feat_max = stats["max"]
         feat_min = stats["min"]
 
-        # Check for values severely exceeding 99th percentile or max
         # Note: account_age_days naturally increases with real time and is monitored as HIGH rather than CRITICAL rejection
         if val > p99:
             severity = "CRITICAL" if (val > feat_max and feat != "account_age_days") else "HIGH"
@@ -108,7 +104,6 @@ def evaluate_feature_compatibility_and_ood(
                 "severity": "HIGH"
             })
 
-    # 3. Check for Extreme Modern Engagement (Domain Shift)
     # In Cresci-15 genuine accounts (E13), avg_replies maxed out at 0.7858 (99th pct = 0.39)
     # and avg_favorites maxed out at 10.01 (99th pct = 1.15).
     # Modern active accounts frequently have avg_replies > 1.0 and avg_favorites > 15.0,
@@ -123,7 +118,6 @@ def evaluate_feature_compatibility_and_ood(
             f"was exclusive to commercial interaction-boosting spambots."
         )
 
-    # 4. Verified Status Auditing
     verified_val = feature_dict.get("verified", 0.0)
     verification_note = ""
     if verified_val > 0.0:
@@ -134,7 +128,6 @@ def evaluate_feature_compatibility_and_ood(
             "and cannot use verification status to establish authenticity."
         )
 
-    # 5. Determine Reliability Decision
     # If there is an aggregation window mismatch (sampled tweets vs lifetime status count),
     # or extreme OOD engagement (avg_replies > 1.0, avg_favorites > 25.0), or critical range violations,
     # reject definitive classification to prevent presenting misleading predictions.

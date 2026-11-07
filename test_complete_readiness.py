@@ -33,7 +33,6 @@ def print_header(title):
 def test_1_verify_system():
     print_header("TEST 1: Run Updated verify_system.py Checks")
     import verify_system
-    # Execute verify_system.main()
     print("[*] Calling verify_system.main()...")
     verify_system.main()
     print("[✓] TEST 1 PASSED: verify_system executed cleanly.")
@@ -50,18 +49,14 @@ def test_3_app_api_endpoints():
     import asyncio
     from app import app, load_artifacts, web_dashboard, predict_and_explain, AccountInput
 
-    # Ensure artifacts are loaded
     load_artifacts()
 
-    # 3a. Test GET / (Dashboard UI) handler directly
     resp_get = asyncio.run(web_dashboard())
     assert resp_get.status_code == 200, f"Expected 200, got {resp_get.status_code}"
     body_text = resp_get.body.decode("utf-8")
     assert "Interpretable Social Bot Detection" in body_text, "Dashboard HTML missing expected title"
     print("  [✓] GET / endpoint returned HTTP 200 with dashboard HTML.")
 
-    # 3b. Test POST /predict_explain with corrected fields: status_count and favorites_count
-    # Validate Pydantic schema deserialization with the newly corrected field names
     genuine_payload = {
         "followers_count": 1450,
         "friends_count": 420,
@@ -95,7 +90,6 @@ def test_3_app_api_endpoints():
 
     assert data["prediction"] == "Genuine Human", f"Expected Genuine Human, got {data['prediction']}"
 
-    # 3c. Test Bot payload via API
     bot_payload = {
         "followers_count": 12,
         "friends_count": 450,
@@ -130,7 +124,6 @@ def test_4_known_labels():
     ignore_cols = ["user_id", "dataset", "label"]
     feature_cols = list(model.feature_name_) if hasattr(model, "feature_name_") else sorted([c for c in df15.columns if c not in ignore_cols])
 
-    # Pick 10 known genuine and 10 known bots
     known_gen = df15[df15["label"] == 0].sample(n=10, random_state=123)
     known_bot = df15[df15["label"] == 1].sample(n=10, random_state=123)
 
@@ -162,7 +155,6 @@ def test_5_shap_lime_consistency():
         df_arr = pd.DataFrame(arr, columns=feature_cols)
         return model.predict_proba(df_arr)
 
-    # 5a. Global SHAP consistency check
     explainer_shap = shap.TreeExplainer(model)
     sample_sub = X.iloc[:50]
     shap_vals = explainer_shap.shap_values(sample_sub)
@@ -177,7 +169,6 @@ def test_5_shap_lime_consistency():
     top_shap_names = [feature_cols[i] for i in top_shap_idx]
     print(f"      Top 5 SHAP features: {top_shap_names}")
 
-    # 5b. LIME local explanation consistency check
     explainer_lime = LimeTabularExplainer(
         training_data=np.array(X.values, dtype=float),
         feature_names=feature_cols,
@@ -186,7 +177,6 @@ def test_5_shap_lime_consistency():
         random_state=42
     )
 
-    # Pick a high-confidence bot
     probs_all = model.predict_proba(X)[:, 1]
     high_bot_idx = np.where((df15["label"] == 1) & (probs_all > 0.90))[0][0]
     bot_vec = np.array(X.iloc[high_bot_idx].values, dtype=float)
@@ -201,7 +191,7 @@ def test_5_shap_lime_consistency():
         if w > 0:
             positive_weights += 1
             
-    # For a high confidence bot, LIME weights should predominantly point towards bot (>0)
+
     print(f"  [✓] LIME Directional Consistency: {positive_weights}/{len(exp_list)} top factors support BOT classification.")
     assert positive_weights >= len(exp_list) // 2, "LIME explanation inconsistent with bot prediction"
 

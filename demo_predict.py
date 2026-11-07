@@ -92,7 +92,6 @@ def main():
         print(f"Model Prediction    : {pred_text}")
         print(f"Prediction Confidence: Human = {probs[0]:.2%}, Bot = {probs[1]:.2%}")
         
-        # Key Metadata Values
         print("\nKey Profile & Engagement Attributes:")
         print(f"  * Followers Count : {int(X_test.iloc[idx]['followers_count']):,}")
         print(f"  * Friends Count   : {int(X_test.iloc[idx]['friends_count']):,}")
@@ -102,7 +101,6 @@ def main():
         print(f"  * Avg Mentions/Tw : {X_test.iloc[idx]['avg_mentions']:.4f}")
         print(f"  * Avg Favorites/Tw: {X_test.iloc[idx]['avg_favorites']:.4f}")
 
-        # LIME Explanation
         exp = explainer.explain_instance(
             data_row=row_vec,
             predict_fn=predict_wrapper,
@@ -120,4 +118,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

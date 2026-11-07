@@ -20,7 +20,6 @@ from unittest.mock import patch, MagicMock
 from io import BytesIO
 import urllib.error
 
-# Ensure test token is active
 os.environ["XFETCH_API_KEY"] = "TEST_XFETCH_MOCK_KEY_AUDIT"
 
 from fastapi.testclient import TestClient
@@ -61,7 +60,6 @@ class TestLiveXSafePredictionAudit(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.json()
 
-        # OOD guard must flag window mismatch and reject misleading raw prediction
         self.assertEqual(data["prediction"], "Unable to Reliably Classify")
         self.assertFalse(data["is_reliable"])
         self.assertIn("model_score_uncalibrated", data)

@@ -1,5 +1,7 @@
 import os
 import sys
+import csv
+import json
 from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
@@ -13,7 +15,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from lime.lime_tabular import LimeTabularExplainer
 
-# Import API clients and feature mappers
 from x_api_client import (
     sanitize_username,
     XApiClient,
@@ -110,7 +111,6 @@ if sys.stdout.encoding != 'utf-8':
     except Exception:
         pass
 
-# Setup paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "tuned_lightgbm_cresci15.joblib")
 CRESCI15_TRAIN = os.path.join(BASE_DIR, "cresci15_train_split.csv")
@@ -130,7 +130,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global variables for model and explainers
 model = None
 lime_explainer = None
 shap_explainer = None
@@ -157,10 +156,8 @@ def load_artifacts():
             feature_cols = sorted(raw_cols)
         X = df[feature_cols].copy()
         
-        # Precompute median defaults for canonical feature set
         default_features = X.median().to_dict()
 
-        # Initialize LIME Explainer
         lime_explainer = LimeTabularExplainer(
             training_data=np.array(X.values, dtype=float),
             feature_names=feature_cols,
@@ -170,7 +167,6 @@ def load_artifacts():
         )
         print(f"[✓] LIME Explainer initialized with {len(feature_cols)} features.")
 
-    # Initialize SHAP TreeExplainer
     if model is not None:
         try:
             shap_explainer = shap.TreeExplainer(model)
@@ -439,6 +435,182 @@ async def twibot20_dashboard():
         return HTMLResponse(content=dashboard_file.read())
 
 
+@app.get("/twibot20/benchmark-explainability")
+async def twibot20_benchmark_explainability():
+    """Return read-only SHAP summaries for the separate locked benchmark model."""
+    output_dir = os.path.join(
+        BASE_DIR, "twis20", "phase5_explainability", "outputs_run03"
+    )
+    phase4_dir = os.path.join(BASE_DIR, "twis20", "phase4_results_run03")
+    try:
+        with open(
+            os.path.join(output_dir, "validation.json"), encoding="utf-8"
+        ) as stream:
+            validation = json.load(stream)
+        with open(
+            os.path.join(phase4_dir, "locked_selection_before_test.json"),
+            encoding="utf-8",
+        ) as stream:
+            selection_lock = json.load(stream)
+        if not isinstance(validation, dict) or not isinstance(selection_lock, dict):
+            raise ValueError("benchmark provenance files must contain JSON objects")
+        before = validation.get("input_fingerprints_before")
+        after = validation.get("input_fingerprints_after")
+        selection_metadata = selection_lock.get("selection_metadata", {})
+        selection = selection_lock.get("selection", {})
+        shap_shape = validation.get("shap_shape")
+        if (
+            validation.get("model_inputs") != 50080
+            or validation.get("feature_names") != 50080
+            or not isinstance(shap_shape, list)
+            or len(shap_shape) != 2
+            or shap_shape[1] != 50080
+            or validation.get("sample_rows") != 200
+            or validation.get("shap_all_finite") is not True
+            or validation.get("error_shap_all_finite") is not True
+            or not np.isfinite(float(validation["max_additivity_residual"]))
+            or float(validation["max_additivity_residual"]) >= 1e-4
+            or not validation.get("phase4_fingerprint_match")
+            or before != after
+            or not isinstance(selection_metadata, dict)
+            or not isinstance(selection, dict)
+            or selection_metadata.get("selection_split") != "dev"
+            or selection_metadata.get("test_metrics_used") is not False
+            or selection.get("experiment") != "profile_text_network"
+            or selection.get("algorithm") != "xgboost"
+            or selection.get("setting") != "depth_8"
+            or not np.isclose(
+                float(validation["locked_threshold"]),
+                float(selection["threshold"]),
+            )
+        ):
+            raise ValueError("benchmark artifact provenance validation failed")
+        with open(
+            os.path.join(output_dir, "global_shap_importance.csv"),
+            newline="",
+            encoding="utf-8",
+        ) as stream:
+            global_features = list(csv.DictReader(stream))[:12]
+        with open(
+            os.path.join(output_dir, "feature_group_importance.csv"),
+            newline="",
+            encoding="utf-8",
+        ) as stream:
+            feature_groups = list(csv.DictReader(stream))
+        with open(
+            os.path.join(output_dir, "individual_explanations.csv"),
+            newline="",
+            encoding="utf-8",
+        ) as stream:
+            individual_rows = list(csv.DictReader(stream))
+    except (OSError, TypeError, ValueError, KeyError, csv.Error) as exc:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "error_code": "benchmark_explainability_unavailable",
+                "message": f"Benchmark explanation artifacts failed validation: {exc}",
+            },
+        )
+
+    examples = []
+    global_feature_data = []
+    feature_group_data = []
+    try:
+        for row in individual_rows:
+            actual_label = int(row["actual_label"])
+            predicted_class = int(row["predicted_class"])
+            bot_score = float(row["probability_bot"])
+            example_threshold = float(row["threshold"])
+            toward_bot = json.loads(row["top_toward_bot"])
+            toward_genuine = json.loads(row["top_toward_genuine"])
+            if (
+                actual_label not in (0, 1)
+                or predicted_class not in (0, 1)
+                or not np.isfinite(bot_score)
+                or not 0 <= bot_score <= 1
+                or not np.isclose(example_threshold, float(selection["threshold"]))
+                or not isinstance(toward_bot, list)
+                or not isinstance(toward_genuine, list)
+                or not toward_bot
+                or not toward_genuine
+            ):
+                raise ValueError("individual benchmark explanation failed validation")
+            for contribution in toward_bot[:3] + toward_genuine[:3]:
+                if (
+                    not isinstance(contribution, dict)
+                    or not isinstance(contribution.get("feature"), str)
+                    or isinstance(contribution.get("shap"), bool)
+                    or not isinstance(contribution.get("shap"), (int, float))
+                    or not np.isfinite(contribution["shap"])
+                ):
+                    raise ValueError("individual SHAP contribution failed validation")
+            examples.append(
+                {
+                    "sample_row": int(row["sample_row"]),
+                    "actual_class": "Bot" if actual_label == 1 else "Genuine",
+                    "predicted_class": "Bot" if predicted_class == 1 else "Genuine",
+                    "bot_class_score_uncalibrated": bot_score,
+                    "threshold": example_threshold,
+                    "toward_bot": toward_bot[:3],
+                    "toward_genuine": toward_genuine[:3],
+                }
+            )
+        for row in global_features:
+            value = float(row["mean_abs_shap"])
+            if not np.isfinite(value) or value < 0:
+                raise ValueError("global SHAP importance failed validation")
+            global_feature_data.append(
+                {
+                    "feature": row["feature"],
+                    "mean_abs_shap": value,
+                    "feature_group": row["feature_group"],
+                }
+            )
+        for row in feature_groups:
+            value = float(row["mean_abs_shap"])
+            if not np.isfinite(value) or value < 0:
+                raise ValueError("SHAP group importance failed validation")
+            feature_group_data.append(
+                {
+                    "feature_group": row["feature_group"],
+                    "mean_abs_shap": value,
+                }
+            )
+        if not examples or not global_feature_data or not feature_group_data:
+            raise ValueError("benchmark explanation artifacts are empty")
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "error_code": "benchmark_explainability_unavailable",
+                "message": f"Benchmark explanation artifacts failed validation: {exc}",
+            },
+        )
+
+    return {
+        "status": "success",
+        "model": (
+            f"TwiBot-20 {selection.get('experiment', 'benchmark')} "
+            f"{selection.get('algorithm', 'model')} {selection.get('setting', '')}"
+        ).strip(),
+        "feature_count": validation.get("feature_names"),
+        "threshold": selection.get("threshold"),
+        "explanation_split": "development",
+        "explanation_sample_size": validation.get("sample_rows"),
+        "shap_output": validation.get("shap_output"),
+        "max_additivity_residual": validation.get("max_additivity_residual"),
+        "global_features": global_feature_data,
+        "feature_groups": feature_group_data,
+        "individual_examples": examples,
+        "causality_note": (
+            "SHAP describes this model's feature contributions on benchmark "
+            "examples; it does not establish causal effects."
+        ),
+    }
+
+
 @app.get("/cresci15", response_class=HTMLResponse)
 async def web_dashboard():
     """Serves an interactive Web UI for demonstrating predictions, XAI explanations, and Live X Analysis"""
@@ -477,7 +649,6 @@ async def web_dashboard():
         </div>
 
         <div class="container">
-            <!-- Navigation Tabs -->
             <ul class="nav nav-pills justify-content-center mb-4" id="pills-tab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="tab-live-x" data-bs-toggle="pill" data-bs-target="#content-live-x" type="button" role="tab">
@@ -493,7 +664,6 @@ async def web_dashboard():
 
             <div class="tab-content" id="pills-tabContent">
                 
-                <!-- TAB 1: Live X Analyzer -->
                 <div class="tab-pane fade show active" id="content-live-x" role="tabpanel">
                     <div class="row">
                         <div class="col-lg-5">
@@ -540,7 +710,6 @@ async def web_dashboard():
                                 </div>
                             </div>
 
-                            <!-- SHAP Breakdown Card -->
                             <div class="card p-4" id="xShapCard" style="display: none;">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h5 class="fw-bold text-secondary mb-0">SHAP Feature Attributions</h5>
@@ -550,7 +719,6 @@ async def web_dashboard():
                                 <div id="xShapList"></div>
                             </div>
 
-                            <!-- LIME Breakdown Card -->
                             <div class="card p-4" id="xLimeCard" style="display: none;">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h5 class="fw-bold text-secondary mb-0">LIME Local Surrogate Rules</h5>
@@ -559,7 +727,6 @@ async def web_dashboard():
                                 <div id="xLimeList"></div>
                             </div>
 
-                            <!-- Feature Audit Transparency Card -->
                             <div class="card p-4" id="xFeatureAuditCard" style="display: none;">
                                 <h5 class="fw-bold text-secondary mb-2">Feature Audit &amp; Imputation Transparency</h5>
                                 <p class="small text-muted mb-2">Detailed mapping across the canonical 34 features:</p>
@@ -576,7 +743,6 @@ async def web_dashboard():
                     </div>
                 </div>
 
-                <!-- TAB 2: Manual Feature Simulator (Existing Form Preserved) -->
                 <div class="tab-pane fade" id="content-manual" role="tabpanel">
                     <div class="row">
                         <div class="col-lg-6">
@@ -810,7 +976,6 @@ async def web_dashboard():
                         return;
                     }
 
-                    // Render Profile Header & Prediction
                     const prof = data.profile_summary || {};
                     const isBot = data.prediction === 'Likely Bot';
                     const isUnable = data.prediction === 'Unable to Analyze';
@@ -887,7 +1052,6 @@ async def web_dashboard():
                         </div>
                     `;
 
-                    // Render SHAP Attributions
                     if (data.explanation && data.explanation.length > 0) {
                         shapCard.style.display = 'block';
                         const shapList = document.getElementById('xShapList');
@@ -912,7 +1076,6 @@ async def web_dashboard():
                         });
                     }
 
-                    // Render LIME
                     if (data.lime_explanations && data.lime_explanations.length > 0) {
                         limeCard.style.display = 'block';
                         const limeList = document.getElementById('xLimeList');
@@ -937,7 +1100,6 @@ async def web_dashboard():
                         });
                     }
 
-                    // Render Feature Transparency
                     auditCard.style.display = 'block';
                     document.getElementById('availCount').innerText = data.available_features.length;
                     document.getElementById('missCount').innerText = data.missing_features.length;
@@ -961,14 +1123,12 @@ async def predict_and_explain(account: AccountInput):
     if model is None or lime_explainer is None:
         return JSONResponse(status_code=500, content={"error": "Model or explainer artifacts not loaded."})
 
-    # Prepare complete feature vector
     input_dict = default_features.copy()
     user_inputs = account.model_dump() if hasattr(account, "model_dump") else account.dict()
     for k, v in user_inputs.items():
         if k in input_dict:
             input_dict[k] = v
 
-    # Recompute derived metrics
     fol = input_dict.get("followers_count", 0)
     fri = input_dict.get("friends_count", 0)
     input_dict["ffratio"] = fol / (fol + fri + 1e-5)
@@ -987,7 +1147,6 @@ async def predict_and_explain(account: AccountInput):
         df_arr = pd.DataFrame(arr, columns=feature_cols)
         return model.predict_proba(df_arr)
 
-    # LIME explanation
     exp = lime_explainer.explain_instance(
         data_row=row_vec,
         predict_fn=predict_wrapper,
@@ -1089,7 +1248,6 @@ async def analyze_x(req: XAnalyzeRequest):
             "message": "No API credentials configured. Set XFETCH_API_KEY (recommended) or X_BEARER_TOKEN in .env"
         })
 
-    # Check minimum required feature coverage
     if "followers_count" not in available_feats or "friends_count" not in available_feats:
         return JSONResponse(status_code=422, content={
             "platform": "X",
@@ -1100,7 +1258,6 @@ async def analyze_x(req: XAnalyzeRequest):
             "message": "Insufficient profile attributes available to reliably evaluate account."
         })
 
-    # Evaluate feature compatibility and Out-Of-Distribution (OOD) metrics
     tweets_analyzed_count = len(tweets_data)
     account_status_count = float(extracted_features.get("status_count", 0))
     ood_report = evaluate_feature_compatibility_and_ood(
@@ -1115,7 +1272,6 @@ async def analyze_x(req: XAnalyzeRequest):
     row_vec = np.array([extracted_features.get(col, 0.0) for col in feature_cols], dtype=float)
     row_df = pd.DataFrame([row_vec], columns=feature_cols)
 
-    # Execute model prediction
     probs = model.predict_proba(row_df)[0]
     p_human = round(float(probs[0]), 4)
     p_bot = round(float(probs[1]), 4)
@@ -1155,7 +1311,6 @@ async def analyze_x(req: XAnalyzeRequest):
         except Exception as e:
             print(f"[!] SHAP calculation error: {e}")
 
-    # Compute LIME explanation
     lime_explanations = []
     if lime_explainer is not None:
         try:
@@ -1178,7 +1333,6 @@ async def analyze_x(req: XAnalyzeRequest):
         except Exception as e:
             print(f"[!] LIME calculation error: {e}")
 
-    # Build clean profile summary for frontend display
     profile_summary = {
         "id": user_data.get("id"),
         "name": user_data.get("name"),

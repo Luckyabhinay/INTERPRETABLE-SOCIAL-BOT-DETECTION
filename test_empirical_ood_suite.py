@@ -19,7 +19,6 @@ import unittest
 from unittest.mock import patch
 from io import BytesIO
 
-# Dummy test key
 os.environ["XFETCH_API_KEY"] = "TEST_XFETCH_MOCK_EMPIRICAL_KEY"
 
 from fastapi.testclient import TestClient
@@ -60,7 +59,6 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.json()
 
-        # Must trigger safety guard rather than showing false bot prediction
         self.assertEqual(data["prediction"], "Unable to Reliably Classify")
         self.assertFalse(data["is_reliable"])
         self.assertIn("verified", data["ood_validation"]["verification_note"].lower())
@@ -251,7 +249,6 @@ class TestEmpiricalOODSafePipeline(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.json()
 
-        # Must flag window mismatch
         self.assertTrue(data["ood_validation"]["window_mismatch_detected"])
         self.assertEqual(data["prediction"], "Unable to Reliably Classify")
 

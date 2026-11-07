@@ -53,7 +53,6 @@ def main():
     print("PHASE 3: LEAK-FREE TUNING, SHAP PRUNING & DUAL-TIER XAI ON 80/20 SPLIT")
     print("=" * 80)
 
-    # 1. Load 80% Train Split, 20% Held-Out Split, and Cresci-17
     df_train, X_train, y_train, feats_train = load_data(TRAIN_FILE)
     df_test, X_test, y_test, feats_test = load_data(TEST_FILE)
     df17, X17, y17, feats17 = load_data(CRESCI17_PATH, ignore_extra=["subtype"])
@@ -73,9 +72,6 @@ def main():
     X_test_imp = pd.DataFrame(imp.transform(X_test_com), columns=common_feats)
     X17_imp = pd.DataFrame(imp.transform(X17_com), columns=common_feats)
 
-    # =========================================================================
-    # PART 1: HYPERPARAMETER OPTIMIZATION (Strictly on 80% Training Split)
-    # =========================================================================
     print("\n" + "=" * 60)
     print("STEP 1: HYPERPARAMETER TUNING VIA 5-FOLD CV ON 80% TRAIN SET")
     print("=" * 60)
@@ -117,14 +113,10 @@ def main():
     print(f"    Best XGBoost Parameters: {grid_xgb.best_params_}")
     print(f"    Best XGBoost 5-Fold F1:  {grid_xgb.best_score_:.4f}")
 
-    # Serialize champion models trained strictly on 80% train split
     joblib.dump(best_lgb, lgb_model_path)
     joblib.dump(best_xgb, xgb_model_path)
     print(f"[✓] Tuned models serialized to: {MODELS_DIR}")
 
-    # =========================================================================
-    # PART 2: GLOBAL EXPLAINABILITY (SHAP TREE EXPLAINER ON TRAIN SPLIT)
-    # =========================================================================
     print("\n" + "=" * 60)
     print("STEP 2: GLOBAL EXPLAINABILITY VIA SHAP")
     print("=" * 60)
@@ -139,7 +131,6 @@ def main():
     else:
         shap_vals_15 = shap_values_15
 
-    # 1. SHAP Beeswarm Plot for Cresci-15
     plt.figure(figsize=(10, 8))
     shap.summary_plot(shap_vals_15, X_train_imp, max_display=20, show=False)
     plt.title("SHAP Global Feature Importance Beeswarm (Cresci-15 Train)", fontsize=14, pad=15)
@@ -149,7 +140,6 @@ def main():
     plt.close()
     print(f"[✓] Saved SHAP Beeswarm Plot: {beeswarm_path_15}")
 
-    # 2. Compute Mean Absolute SHAP values
     mean_abs_shap = np.abs(shap_vals_15).mean(axis=0)
     shap_ranking_df = pd.DataFrame({
         "Feature": common_feats,
@@ -162,7 +152,6 @@ def main():
     print("\nTop 10 Most Influential Features:")
     print(shap_ranking_df.head(10).to_string(index=False))
 
-    # Bar chart for Top 15 features
     plt.figure(figsize=(10, 6))
     sns.barplot(data=shap_ranking_df.head(15), x="Mean_Absolute_SHAP", y="Feature", hue="Feature", palette="viridis", legend=False)
     plt.title("Top 15 Most Predictive Features by Mean |SHAP| (Cresci-15 Train)", fontsize=13)
@@ -172,7 +161,6 @@ def main():
     plt.savefig(bar_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-    # SHAP for Cresci-17
     best_lgb_17 = LGBMClassifier(**best_lgb.get_params())
     best_lgb_17.fit(X17_imp, y17)
     explainer_17 = shap.TreeExplainer(best_lgb_17)
@@ -188,9 +176,6 @@ def main():
     plt.close()
     print(f"[✓] Saved SHAP Beeswarm Plot for Cresci-17: {beeswarm_path_17}")
 
-    # =========================================================================
-    # PART 3: LEAK-FREE NESTED FEATURE SELECTION / PRUNING EXPERIMENT
-    # =========================================================================
     print("\n" + "=" * 60)
     print("STEP 3: LEAKAGE-FREE FEATURE PRUNING IMPACT ANALYSIS (CV + HELD-OUT)")
     print("=" * 60)
@@ -201,7 +186,6 @@ def main():
     for k in subsets:
         selected_feats = shap_ranking_df["Feature"].iloc[:k].tolist()
         
-        # 1. 5-Fold CV strictly on 80% Train Split
         cv_f1s, cv_accs = [], []
         for train_idx, val_idx in skf.split(X_train_imp, y_train):
             X_tr = X_train_imp[selected_feats].iloc[train_idx]
@@ -215,7 +199,6 @@ def main():
             cv_f1s.append(f1_score(y_va, preds_va, zero_division=0))
             cv_accs.append(accuracy_score(y_va, preds_va))
 
-        # 2. Evaluate on 20% Held-Out Test Split
         clf_k_full = LGBMClassifier(**best_lgb.get_params())
         clf_k_full.fit(X_train_imp[selected_feats], y_train)
         test_preds_k = clf_k_full.predict(X_test_imp[selected_feats])
@@ -249,14 +232,10 @@ def main():
     plt.close()
     print(f"[✓] Saved Leak-Free Feature Pruning Curve: {pruning_plot_path}")
 
-    # =========================================================================
-    # PART 4: HELD-OUT TEST EVALUATION, PREDICTIONS CSV & VISUALIZATIONS
-    # =========================================================================
     print("\n" + "=" * 60)
     print("STEP 4: HELD-OUT TEST EVALUATION & PREDICTIONS SERIALIZATION")
     print("=" * 60)
 
-    # Predict on genuine held-out test split
     test_preds = best_lgb.predict(X_test_imp)
     test_probs = best_lgb.predict_proba(X_test_imp)
 
@@ -275,7 +254,6 @@ def main():
     print(f"  * ROC-AUC    : {test_auc:.4f}")
     print(f"  * Brier Score: {test_brier:.5f} (lower is better, 0 = perfect calibration)")
 
-    # Save Held-Out Predictions CSV
     preds_df = pd.DataFrame({
         "user_id": df_test["user_id"].values,
         "actual_label": y_test,
@@ -287,7 +265,7 @@ def main():
     preds_df.to_csv(PREDICTIONS_CSV, index=False)
     print(f"[✓] Saved Held-Out Test Predictions: {PREDICTIONS_CSV} ({len(preds_df)} rows)")
 
-    # 1. Confusion Matrix on Held-Out Test Set
+
     cm = confusion_matrix(y_test, test_preds)
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
@@ -300,7 +278,7 @@ def main():
     plt.savefig(cm_path, dpi=300)
     plt.close()
 
-    # 2. ROC Curve on Held-Out Test Set
+
     fpr, tpr, _ = roc_curve(y_test, test_probs[:, 1])
     plt.figure(figsize=(7, 6))
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'Held-Out ROC curve (AUC = {test_auc:.4f})')
@@ -320,9 +298,6 @@ def main():
     print(f"[✓] Saved Held-Out Confusion Matrix Heatmap: {cm_path}")
     print(f"[✓] Saved Held-Out ROC Curve: {roc_path}")
 
-    # =========================================================================
-    # PART 5: LOCAL EXPLAINABILITY VIA LIME (ON HELD-OUT TEST INSTANCES)
-    # =========================================================================
     print("\n" + "=" * 60)
     print("STEP 5: LOCAL EXPLAINABILITY VIA LIME (HELD-OUT TEST INSTANCES)")
     print("=" * 60)
@@ -339,7 +314,7 @@ def main():
         df_arr = pd.DataFrame(arr, columns=common_feats)
         return best_lgb.predict_proba(df_arr)
 
-    # Find sample indices from HELD-OUT test set:
+
     true_bot_idx = np.where((y_test == 1) & (test_preds == 1) & (test_probs[:, 1] > 0.95))[0][0]
     true_human_idx = np.where((y_test == 0) & (test_preds == 0) & (test_probs[:, 0] > 0.95))[0][0]
     fn_indices = np.where((y_test == 1) & (test_preds == 0))[0]

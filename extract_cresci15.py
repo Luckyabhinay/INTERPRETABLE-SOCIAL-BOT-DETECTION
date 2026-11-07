@@ -132,7 +132,6 @@ def main():
 
         print(f"\n[+] Processing {dataset_code} (Target Label: {label})...")
         
-        # 1. Parse Users
         users = {}
         with open(users_file, "r", encoding="utf-8", errors="replace") as f:
             reader = csv.DictReader(f)
@@ -144,7 +143,6 @@ def main():
 
         print(f"    Loaded {len(users)} user profiles.")
 
-        # 2. Stream Tweets and Aggregate per user
         tweet_stats = defaultdict(lambda: {
             "tweet_count": 0,
             "retweet_count": 0,
@@ -182,7 +180,6 @@ def main():
                     if (count + 1) % 500000 == 0:
                         print(f"    ... processed {count + 1:,} tweets")
 
-        # 3. Assemble 31-Feature Representation for each user
         for uid, urow in users.items():
             tstats = tweet_stats[uid]
             tw_count = tstats["tweet_count"]
@@ -294,7 +291,6 @@ def main():
 
     print(f"\n[+] Total user feature vectors generated: {len(all_users)}")
 
-    # Write output CSV
     fieldnames = list(all_users[0].keys())
     with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
